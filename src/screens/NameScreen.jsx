@@ -1,5 +1,6 @@
 import Dragon from '../components/Dragon.jsx';
 import Avatar from '../components/Avatar.jsx';
+import JoinQr from '../components/JoinQr.jsx';
 import { studentMeta } from '../../shared/students.js';
 
 export default function NameScreen({ students, onSelect, onAdmin }) {
@@ -36,6 +37,7 @@ export default function NameScreen({ students, onSelect, onAdmin }) {
             );
           })}
         </div>
+        <JoinQr />
         <button type="button" className="teacher-link" onClick={onAdmin}>선생님 입장</button>
       </div>
     </section>

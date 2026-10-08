@@ -139,6 +139,39 @@ h2 { font-size: 20px; margin: 0; }
 
 .name-card-hint { color: var(--muted); font-size: 14px; }
 
+.join-qr {
+  margin: 22px 0 0;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 6px 0 rgba(80, 40, 10, 0.05);
+}
+
+.join-qr img {
+  width: 132px;
+  height: 132px;
+  border-radius: 12px;
+  background: white;
+}
+
+.join-qr figcaption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.join-qr span {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 .teacher-link {
   display: block;
   width: 100%;
@@ -653,6 +686,40 @@ h2 { font-size: 20px; margin: 0; }
 .show-password { align-self: flex-start; padding-left: 0; }
 
 .admin-scroll { display: flex; flex-direction: column; gap: 12px; }
+
+.example-open { flex: none; }
+.example-open-note { margin: -4px 0 4px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.example-scroll { padding: 16px 16px 28px; }
+
+.example-paper {
+  margin-top: 12px;
+  padding: 18px 16px 20px;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 8px 0 rgba(80, 40, 10, 0.05);
+}
+
+.example-paper h2 {
+  margin: 4px 0 12px;
+  font-family: "Jua", "Noto Sans KR", sans-serif;
+  font-size: 32px;
+  line-height: 1.35;
+}
+
+.example-body { font-size: 20px; line-height: 1.85; }
+
+.example-shelf-label {
+  margin: 18px 4px 10px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.example-wall {
+  margin: 0 -6px;
+  padding-top: 4px;
+}
 
 .admin-banner, .admin-message {
   margin: 0;

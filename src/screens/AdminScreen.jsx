@@ -51,7 +51,7 @@ export default function AdminLoginScreen({ onBack, onLogin }) {
   );
 }
 
-export function AdminScreen({ overview, onLogout, onReset, onChangePassword, onOpenBook }) {
+export function AdminScreen({ overview, onLogout, onReset, onChangePassword, onOpenBook, onShowExample }) {
   const [openId, setOpenId] = useState(null);
   const [pendingReset, setPendingReset] = useState(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -112,6 +112,10 @@ export function AdminScreen({ overview, onLogout, onReset, onChangePassword, onO
         <button type="button" className="text-button" onClick={onLogout}>나가기</button>
       </header>
       <div className="screen-scroll admin-scroll">
+        <button type="button" className="primary example-open" onClick={onShowExample}>
+          학생에게 예시 보여주기
+        </button>
+        <p className="example-open-note">비밀번호가 없는 화면이에요. 친구들 앞에서 켜도 괜찮아요.</p>
         {overview.adminPasswordIsInitial && (
           <p className="admin-banner">처음 비밀번호를 아직 쓰고 있어요. 아래쪽에서 바꿔 주세요.</p>
         )}

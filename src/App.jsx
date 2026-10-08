@@ -3,6 +3,7 @@ import { api, clearToken, getToken, setToken } from './api.js';
 import BookSheet from './components/BookSheet.jsx';
 import Dragon from './components/Dragon.jsx';
 import AdminLoginScreen, { AdminScreen } from './screens/AdminScreen.jsx';
+import ExampleScreen from './screens/ExampleScreen.jsx';
 import NameScreen from './screens/NameScreen.jsx';
 import PinScreen from './screens/PinScreen.jsx';
 import ResumeScreen from './screens/ResumeScreen.jsx';
@@ -232,8 +233,11 @@ export default function App() {
             setSession((current) => ({ ...current, overview: result.overview }));
           }}
           onOpenBook={(student, book) => setAdminBook({ student, book })}
+          onShowExample={() => setScreen('example')}
         />
       )}
+
+      {screen === 'example' && <ExampleScreen onBack={() => setScreen('admin')} />}
 
       {sheet && screen === 'shelf' && (
         <BookSheet
