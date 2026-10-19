@@ -10,29 +10,33 @@ export type Grade =
   | "6학년"
   | "교직원";
 
-export type Gender = "boy" | "girl";
+export type AnimalId =
+  | "dog"
+  | "cat"
+  | "rabbit"
+  | "hamster"
+  | "hedgehog"
+  | "lizard"
+  | "capybara"
+  | "panda"
+  | "fox"
+  | "penguin";
 
-export type ItemCategory = "face" | "hair" | "outfit" | "shoes";
+export type EvolutionStage = 1 | 2 | 3;
+
+export type ItemCategory = "clothes" | "food" | "snack";
 
 export interface ShopItem {
   id: string;
   category: ItemCategory;
   name: string;
   price: number;
-  gender: Gender | "any";
+  blurb: string;
+  emoji: string;
   colors: {
     primary: string;
     secondary?: string;
-    accent?: string;
   };
-  starter?: boolean;
-}
-
-export interface EquippedItems {
-  face: string;
-  hair: string;
-  outfit: string;
-  shoes: string;
 }
 
 export interface LapRecord {
@@ -51,11 +55,15 @@ export interface User {
   passwordPlain: string;
   role: Role;
   grade: Grade;
-  gender: Gender;
+  animal: AnimalId;
   mileage: number;
   spentMileage: number;
-  ownedItemIds: string[];
-  equipped: EquippedItems;
+  ownedClothesIds: string[];
+  equippedClothesId: string | null;
+  fullness: number;
+  happiness: number;
+  mealsFed: number;
+  snacksFed: number;
   createdAt: string;
 }
 
@@ -77,16 +85,24 @@ export interface PublicUser {
   displayName: string;
   role: Role;
   grade: Grade;
-  gender: Gender;
+  animal: AnimalId;
+  animalLabel: string;
+  stage: EvolutionStage;
+  stageName: string;
   mileage: number;
   spentMileage: number;
   availableMileage: number;
-  ownedItemIds: string[];
-  equipped: EquippedItems;
+  ownedClothesIds: string[];
+  equippedClothesId: string | null;
+  fullness: number;
+  happiness: number;
+  mealsFed: number;
+  snacksFed: number;
   createdAt: string;
   todayLaps: number;
   monthLaps: number;
   totalLaps: number;
+  nextEvolutionAt: number | null;
 }
 
 export interface AdminUserView extends PublicUser {

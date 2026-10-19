@@ -5,6 +5,7 @@ import {
   isSameMonth,
   readDb,
 } from "./store";
+import { getAnimal, nextEvolutionAt, stageFromMileage, stageName } from "./catalog";
 import type { AdminUserView, PublicUser, User } from "./types";
 
 export const SESSION_COOKIE = "run_session";
@@ -25,6 +26,7 @@ export async function toPublicUser(user: User): Promise<PublicUser> {
     .filter((l) => isSameMonth(l.recordedAt))
     .reduce((sum, l) => sum + l.laps, 0);
   const totalLaps = mine.reduce((sum, l) => sum + l.laps, 0);
+  const stage = stageFromMileage(user.mileage);
 
   return {
     id: user.id,
@@ -32,16 +34,24 @@ export async function toPublicUser(user: User): Promise<PublicUser> {
     displayName: user.displayName,
     role: user.role,
     grade: user.grade,
-    gender: user.gender,
+    animal: user.animal,
+    animalLabel: getAnimal(user.animal).name,
+    stage,
+    stageName: stageName(user.animal, stage),
     mileage: user.mileage,
     spentMileage: user.spentMileage,
     availableMileage: user.mileage - user.spentMileage,
-    ownedItemIds: user.ownedItemIds,
-    equipped: user.equipped,
+    ownedClothesIds: user.ownedClothesIds,
+    equippedClothesId: user.equippedClothesId,
+    fullness: user.fullness,
+    happiness: user.happiness,
+    mealsFed: user.mealsFed,
+    snacksFed: user.snacksFed,
     createdAt: user.createdAt,
     todayLaps,
     monthLaps,
     totalLaps,
+    nextEvolutionAt: nextEvolutionAt(user.mileage),
   };
 }
 

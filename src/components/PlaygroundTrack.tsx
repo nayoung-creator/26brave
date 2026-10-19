@@ -1,6 +1,6 @@
 "use client";
 
-import { CharacterAvatar } from "./CharacterAvatar";
+import { AnimalAvatar } from "./AnimalAvatar";
 import type { PublicUser } from "@/lib/types";
 
 interface Props {
@@ -124,9 +124,10 @@ export function PlaygroundTrack({ users }: Props) {
               title={`${user.displayName} · ${user.totalLaps}바퀴`}
             >
               <div className="flex flex-col items-center">
-                <CharacterAvatar
-                  gender={user.gender}
-                  equipped={user.equipped}
+                <AnimalAvatar
+                  animal={user.animal}
+                  stage={user.stage}
+                  clothesId={user.equippedClothesId}
                   size={64}
                 />
                 <span className="mt-[-4px] rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-[var(--ink)] shadow-sm">

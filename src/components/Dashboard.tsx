@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CharacterAvatar } from "./CharacterAvatar";
+import { AnimalAvatar } from "./AnimalAvatar";
 import { PlaygroundTrack } from "./PlaygroundTrack";
-import { SHOP_ITEMS, getItem } from "@/lib/catalog";
+import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
 import type {
   AdminUserView,
+  EvolutionStage,
   ItemCategory,
   LapRecord,
   PublicUser,
@@ -30,17 +31,16 @@ const TABS: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: "today", label: "오늘의 기록" },
   { id: "month", label: "이번 달의 기록" },
   { id: "track", label: "참가자 현황" },
-  { id: "character", label: "캐릭터 꾸미기" },
+  { id: "character", label: "동물 키우기" },
   { id: "growth", label: "성장 배지" },
   { id: "profile", label: "내 정보" },
   { id: "admin", label: "계정 관리", adminOnly: true },
 ];
 
 const CATEGORY_LABEL: Record<ItemCategory, string> = {
-  face: "얼굴",
-  hair: "머리",
-  outfit: "의상",
-  shoes: "신발",
+  clothes: "옷",
+  food: "먹이",
+  snack: "간식",
 };
 
 export function Dashboard({ user, onUserChange }: Props) {
@@ -52,7 +52,7 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [lapInput, setLapInput] = useState(1);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
-  const [shopCategory, setShopCategory] = useState<ItemCategory>("outfit");
+  const [shopCategory, setShopCategory] = useState<ItemCategory>("clothes");
   const [revealId, setRevealId] = useState<string | null>(null);
 
   const loadRecords = useCallback(async () => {
@@ -121,10 +121,11 @@ export function Dashboard({ user, onUserChange }: Props) {
 
   async function buyItem(item: ShopItem) {
     setMessage("");
+    const action = item.category === "clothes" ? "buy" : "feed";
     const res = await fetch("/api/shop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "buy", itemId: item.id }),
+      body: JSON.stringify({ action, itemId: item.id }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -132,18 +133,20 @@ export function Dashboard({ user, onUserChange }: Props) {
       return;
     }
     onUserChange(data.user);
-    setMessage(`${item.name}을(를) 구매했습니다!`);
+    if (item.category === "food") {
+      setMessage(`${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`);
+    } else if (item.category === "snack") {
+      setMessage(`${item.name}을(를) 줬어요. 행복이 올랐습니다.`);
+    } else {
+      setMessage(`${item.name}을(를) 사서 입혔어요.`);
+    }
   }
 
   async function equipItem(item: ShopItem) {
     const res = await fetch("/api/shop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "equip",
-        category: item.category,
-        itemId: item.id,
-      }),
+      body: JSON.stringify({ action: "equip", itemId: item.id }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -198,25 +201,20 @@ export function Dashboard({ user, onUserChange }: Props) {
   const visibleTabs = TABS.filter((t) => !t.adminOnly || user.role === "admin");
 
   const shopItems = useMemo(
-    () =>
-      SHOP_ITEMS.filter(
-        (item) =>
-          item.category === shopCategory &&
-          (item.gender === "any" || item.gender === user.gender),
-      ),
-    [shopCategory, user.gender],
+    () => SHOP_ITEMS.filter((item) => item.category === shopCategory),
+    [shopCategory],
   );
 
   const badges = useMemo(() => {
     const total = user.totalLaps;
     return [
-      { name: "첫 발걸음", need: 1, earned: total >= 1 },
-      { name: "운동장 탐험가", need: 10, earned: total >= 10 },
-      { name: "꾸준한 러너", need: 30, earned: total >= 30 },
-      { name: "스타터 1km", need: 5, earned: total >= 5 },
-      { name: "챌린저 2km", need: 10, earned: total >= 10 },
-      { name: "마스터 3km", need: 15, earned: total >= 15 },
-      { name: "마일리지 부자", need: 40, earned: user.mileage >= 40 },
+      { name: "첫 발걸음", detail: "누적 1바퀴", earned: total >= 1 },
+      { name: "운동장 탐험가", detail: "누적 10바퀴", earned: total >= 10 },
+      { name: "꾸준한 러너", detail: "누적 30바퀴", earned: total >= 30 },
+      { name: "첫 진화", detail: "누적 50 마일리지", earned: user.mileage >= 50 },
+      { name: "완전 진화", detail: "누적 100 마일리지", earned: user.mileage >= 100 },
+      { name: "밥 잘 주는 친구", detail: "먹이 3회", earned: user.mealsFed >= 3 },
+      { name: "간식 요정", detail: "간식 3회", earned: user.snacksFed >= 3 },
     ];
   }, [user]);
 
@@ -254,15 +252,16 @@ export function Dashboard({ user, onUserChange }: Props) {
 
         <div className="border-t border-[var(--line)] p-4">
           <div className="mb-3 flex items-center gap-3">
-            <CharacterAvatar
-              gender={user.gender}
-              equipped={user.equipped}
+            <AnimalAvatar
+              animal={user.animal}
+              stage={user.stage}
+              clothesId={user.equippedClothesId}
               size={52}
             />
             <div className="min-w-0">
               <div className="truncate text-sm font-bold">{user.displayName}</div>
               <div className="text-xs text-[var(--ink-muted)]">
-                {user.grade} · {user.role === "admin" ? "관리자" : "참가자"}
+                {user.stageName}
               </div>
               <div className="text-xs font-semibold text-[var(--accent)]">
                 보유 {user.availableMileage} 마일리지
@@ -282,8 +281,11 @@ export function Dashboard({ user, onUserChange }: Props) {
               {visibleTabs.find((t) => t.id === tab)?.label}
             </h2>
             <p className="text-sm text-[var(--ink-muted)]">
-              오늘 {user.todayLaps}바퀴 · 이번 달 {user.monthLaps}바퀴 · 누적{" "}
-              {user.totalLaps}바퀴
+              {user.stageName}
+              {user.nextEvolutionAt
+                ? ` · 다음 진화까지 ${user.nextEvolutionAt - user.mileage} 마일리지`
+                : " · 최고 단계"}
+              {" · "}오늘 {user.todayLaps}바퀴
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -420,7 +422,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   <div key={p.id} className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
                     <div className="truncate text-sm font-bold">{p.displayName}</div>
                     <div className="text-xs text-[var(--ink-muted)]">
-                      {p.grade} · 누적 {p.totalLaps}바퀴
+                      {p.stageName} · 누적 {p.totalLaps}바퀴
                     </div>
                   </div>
                 ))}
@@ -429,32 +431,48 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "character" && (
-            <section className="grid h-full grid-cols-[0.9fr_1.1fr] gap-6">
-              <div className="panel flex flex-col items-center justify-center">
-                <h3 className="section-title mb-2">내 캐릭터</h3>
-                <CharacterAvatar
-                  gender={user.gender}
-                  equipped={user.equipped}
-                  size={220}
-                />
-                <p className="mt-4 text-sm text-[var(--ink-muted)]">
-                  보유 마일리지{" "}
-                  <strong className="text-[var(--accent)]">
-                    {user.availableMileage}
-                  </strong>
+            <section className="grid h-full grid-cols-[0.95fr_1.05fr] gap-6">
+              <div className="panel flex flex-col overflow-auto">
+                <h3 className="section-title">{user.stageName}</h3>
+                <p className="text-sm text-[var(--ink-muted)]">
+                  지금 키우는 친구 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
                 </p>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                  {(Object.keys(CATEGORY_LABEL) as ItemCategory[]).map((cat) => {
-                    const item = getItem(user.equipped[cat]);
+                <div className="my-3 flex justify-center">
+                  <AnimalAvatar
+                    animal={user.animal}
+                    stage={user.stage}
+                    clothesId={user.equippedClothesId}
+                    size={210}
+                  />
+                </div>
+                <EvolutionBar mileage={user.mileage} />
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {([1, 2, 3] as EvolutionStage[]).map((stage) => {
+                    const unlocked = user.mileage >= (stage - 1) * EVOLUTION_STEP;
+                    const current = user.stage === stage;
                     return (
-                      <div key={cat} className="rounded-xl bg-[var(--panel-soft)] px-3 py-2">
-                        <div className="text-[var(--ink-muted)]">
-                          {CATEGORY_LABEL[cat]}
+                      <div
+                        key={stage}
+                        className={`rounded-2xl border px-2 py-2 text-center ${
+                          current
+                            ? "border-[var(--brand)] bg-[#E7F4EC]"
+                            : "border-[var(--line)] bg-white"
+                        } ${unlocked ? "" : "opacity-45"}`}
+                      >
+                        <AnimalAvatar animal={user.animal} stage={stage} size={72} />
+                        <div className="text-[11px] font-semibold leading-tight">
+                          {stageName(user.animal, stage)}
                         </div>
-                        <div className="font-semibold">{item?.name ?? "-"}</div>
+                        <div className="text-[10px] text-[var(--ink-muted)]">
+                          {stage === 1 ? "시작" : `${(stage - 1) * EVOLUTION_STEP}점`}
+                        </div>
                       </div>
                     );
                   })}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <Meter label="포만감" value={user.fullness} hint={`먹이 ${user.mealsFed}회`} />
+                  <Meter label="행복" value={user.happiness} hint={`간식 ${user.snacksFed}회`} />
                 </div>
               </div>
 
@@ -477,30 +495,31 @@ export function Dashboard({ user, onUserChange }: Props) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {shopItems.map((item) => {
-                    const owned = user.ownedItemIds.includes(item.id);
-                    const equipped = user.equipped[item.category] === item.id;
+                    const owned = user.ownedClothesIds.includes(item.id);
+                    const equipped = user.equippedClothesId === item.id;
                     return (
                       <div key={item.id} className="rounded-2xl border border-[var(--line)] p-4">
                         <div className="mb-3 flex items-center gap-3">
                           <span
-                            className="h-10 w-10 rounded-full border border-black/10"
+                            className="flex h-10 w-10 items-center justify-center rounded-full text-lg"
                             style={{ background: item.colors.primary }}
-                          />
+                          >
+                            {item.emoji}
+                          </span>
                           <div>
                             <div className="font-semibold">{item.name}</div>
                             <div className="text-xs text-[var(--ink-muted)]">
-                              {item.price === 0 ? "기본 지급" : `${item.price} 마일리지`}
+                              {item.blurb} · {item.price} 마일리지
                             </div>
                           </div>
                         </div>
-                        {owned ? (
+                        {item.category === "clothes" && owned ? (
                           <button
                             type="button"
                             className="btn-primary w-full"
-                            disabled={equipped}
                             onClick={() => equipItem(item)}
                           >
-                            {equipped ? "착용 중" : "착용하기"}
+                            {equipped ? "벗기기" : "입히기"}
                           </button>
                         ) : (
                           <button
@@ -508,7 +527,11 @@ export function Dashboard({ user, onUserChange }: Props) {
                             className="btn-accent w-full"
                             onClick={() => buyItem(item)}
                           >
-                            구매하기
+                            {item.category === "clothes"
+                              ? "사서 입히기"
+                              : item.category === "food"
+                                ? "먹이 주기"
+                                : "간식 주기"}
                           </button>
                         )}
                       </div>
@@ -537,7 +560,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   >
                     <div className="font-display text-2xl">{badge.name}</div>
                     <div className="mt-2 text-sm text-[var(--ink-muted)]">
-                      목표 {badge.need}바퀴
+                      {badge.detail}
                     </div>
                     <div className="mt-3 text-sm font-semibold">
                       {badge.earned ? "획득!" : "도전 중"}
@@ -556,6 +579,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   <Row label="아이디" value={user.username} />
                   <Row label="이름" value={user.displayName} />
                   <Row label="학년/구분" value={user.grade} />
+                  <Row label="키우는 동물" value={`${user.animalLabel} · ${user.stageName}`} />
                   <Row label="역할" value={user.role === "admin" ? "관리자" : "참가자"} />
                   <Row label="누적 마일리지" value={`${user.mileage}`} />
                   <Row label="사용 마일리지" value={`${user.spentMileage}`} />
@@ -599,6 +623,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                       <th className="px-4 py-3 font-medium">이름</th>
                       <th className="px-4 py-3 font-medium">아이디</th>
                       <th className="px-4 py-3 font-medium">학년</th>
+                      <th className="px-4 py-3 font-medium">동물</th>
                       <th className="px-4 py-3 font-medium">누적 바퀴</th>
                       <th className="px-4 py-3 font-medium">마일리지</th>
                       <th className="px-4 py-3 font-medium">비밀번호</th>
@@ -616,6 +641,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                         </td>
                         <td className="px-4 py-3">{u.username}</td>
                         <td className="px-4 py-3">{u.grade}</td>
+                        <td className="px-4 py-3">{u.stageName}</td>
                         <td className="px-4 py-3">{u.totalLaps}</td>
                         <td className="px-4 py-3">
                           {u.availableMileage}
@@ -678,6 +704,50 @@ function Stat({
         <span className="ml-1 text-sm font-sans font-medium text-[var(--ink-muted)]">
           {unit}
         </span>
+      </div>
+    </div>
+  );
+}
+
+function EvolutionBar({ mileage }: { mileage: number }) {
+  const cap = EVOLUTION_STEP * 2;
+  const width = Math.min(100, (mileage / cap) * 100);
+  const next = mileage >= cap ? null : mileage < EVOLUTION_STEP ? EVOLUTION_STEP : cap;
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-xs text-[var(--ink-muted)]">
+        <span>진화</span>
+        <span>
+          {next ? `다음 단계 ${next} 마일리지` : "3단계 완료"}
+        </span>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-[var(--panel-soft)]">
+        <div className="h-full rounded-full bg-[var(--brand)]" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Meter({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-[var(--panel-soft)] px-3 py-3">
+      <div className="flex justify-between text-xs">
+        <span className="font-semibold">{label}</span>
+        <span className="text-[var(--ink-muted)]">{hint}</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+        <div
+          className="h-full rounded-full bg-[var(--accent)]"
+          style={{ width: `${value}%` }}
+        />
       </div>
     </div>
   );

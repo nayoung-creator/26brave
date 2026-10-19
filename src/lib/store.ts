@@ -2,12 +2,13 @@ import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import type {
+  AnimalId,
   Database,
   LapRecord,
   Session,
   User,
 } from "./types";
-import { defaultEquipped, starterItemsForGender } from "./catalog";
+import { isAnimalId } from "./catalog";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "store.json");
@@ -16,29 +17,73 @@ function emptyDb(): Database {
   return { users: [], sessions: [], laps: [] };
 }
 
+function freshUser(partial: Omit<User, "ownedClothesIds" | "equippedClothesId" | "fullness" | "happiness" | "mealsFed" | "snacksFed"> & Partial<User>): User {
+  return {
+    ownedClothesIds: [],
+    equippedClothesId: null,
+    fullness: 40,
+    happiness: 40,
+    mealsFed: 0,
+    snacksFed: 0,
+    ...partial,
+  };
+}
+
+function normalizeUser(raw: Partial<User> & { animal?: unknown }): User {
+  const animal: AnimalId = isAnimalId(raw.animal) ? raw.animal : "dog";
+  const clothes = Array.isArray(raw.ownedClothesIds)
+    ? raw.ownedClothesIds.filter((id) => typeof id === "string")
+    : [];
+  return {
+    id: String(raw.id ?? randomUUID()),
+    username: String(raw.username ?? "user"),
+    displayName: String(raw.displayName ?? "참가자"),
+    passwordPlain: String(raw.passwordPlain ?? "1234"),
+    role: raw.role === "admin" ? "admin" : "participant",
+    grade: raw.grade ?? "1학년",
+    animal,
+    mileage: Number(raw.mileage ?? 0),
+    spentMileage: Number(raw.spentMileage ?? 0),
+    ownedClothesIds: clothes,
+    equippedClothesId:
+      typeof raw.equippedClothesId === "string" ? raw.equippedClothesId : null,
+    fullness: Math.max(0, Math.min(100, Number(raw.fullness ?? 40))),
+    happiness: Math.max(0, Math.min(100, Number(raw.happiness ?? 40))),
+    mealsFed: Number(raw.mealsFed ?? 0),
+    snacksFed: Number(raw.snacksFed ?? 0),
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+  };
+}
+
 async function ensureDb(): Promise<Database> {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
     const raw = await fs.readFile(DB_PATH, "utf8");
-    return JSON.parse(raw) as Database;
+    const parsed = JSON.parse(raw) as Database;
+    const users = (parsed.users ?? []).map((user) => normalizeUser(user));
+    const changed = JSON.stringify(users) !== JSON.stringify(parsed.users);
+    parsed.users = users;
+    parsed.sessions = parsed.sessions ?? [];
+    parsed.laps = parsed.laps ?? [];
+    if (changed) await writeDb(parsed);
+    return parsed;
   } catch {
     const db = emptyDb();
-    const admin: User = {
-      id: randomUUID(),
-      username: "admin",
-      displayName: "관리자",
-      passwordPlain: "admin123",
-      role: "admin",
-      grade: "교직원",
-      gender: "boy",
-      mileage: 0,
-      spentMileage: 0,
-      ownedItemIds: starterItemsForGender("boy").map((i) => i.id),
-      equipped: defaultEquipped("boy"),
-      createdAt: new Date().toISOString(),
-    };
-    db.users.push(admin);
-    await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), "utf8");
+    db.users.push(
+      freshUser({
+        id: randomUUID(),
+        username: "admin",
+        displayName: "관리자",
+        passwordPlain: "admin123",
+        role: "admin",
+        grade: "교직원",
+        animal: "dog",
+        mileage: 0,
+        spentMileage: 0,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    await writeDb(db);
     return db;
   }
 }
@@ -76,28 +121,25 @@ export async function createUser(input: {
   displayName: string;
   password: string;
   grade: User["grade"];
-  gender: User["gender"];
+  animal: AnimalId;
   role?: User["role"];
 }): Promise<User> {
   const { result } = await updateDb((db) => {
     if (db.users.some((u) => u.username === input.username)) {
       throw new Error("USERNAME_TAKEN");
     }
-    const gender = input.gender;
-    const user: User = {
+    const user = freshUser({
       id: randomUUID(),
       username: input.username,
       displayName: input.displayName,
       passwordPlain: input.password,
       role: input.role ?? "participant",
       grade: input.grade,
-      gender,
+      animal: input.animal,
       mileage: 0,
       spentMileage: 0,
-      ownedItemIds: starterItemsForGender(gender).map((i) => i.id),
-      equipped: defaultEquipped(gender),
       createdAt: new Date().toISOString(),
-    };
+    });
     db.users.push(user);
     return user;
   });

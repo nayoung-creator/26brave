@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import type { Gender, Grade, PublicUser } from "@/lib/types";
+import { AnimalAvatar } from "./AnimalAvatar";
+import { ANIMALS } from "@/lib/catalog";
+import type { AnimalId, Grade, PublicUser } from "@/lib/types";
 
 const GRADES: Grade[] = [
   "유치원",
@@ -22,6 +24,7 @@ export function AuthPanel({ onAuthed }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [animal, setAnimal] = useState<AnimalId>("dog");
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,7 +61,7 @@ export function AuthPanel({ onAuthed }: Props) {
         displayName: fd.get("displayName"),
         password: fd.get("password"),
         grade: fd.get("grade"),
-        gender: fd.get("gender") as Gender,
+        animal,
       }),
     });
     const data = await res.json();
@@ -76,7 +79,7 @@ export function AuthPanel({ onAuthed }: Props) {
       <div className="absolute inset-0 auth-grain" />
 
       <div className="relative z-10 flex min-h-screen w-full">
-        <section className="flex w-[58%] flex-col justify-end px-16 pb-20 pt-16">
+        <section className="flex w-[54%] flex-col justify-end px-16 pb-20 pt-16">
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
           </p>
@@ -103,8 +106,8 @@ export function AuthPanel({ onAuthed }: Props) {
           </div>
         </section>
 
-        <section className="flex w-[42%] items-center justify-center bg-[rgba(250,248,242,0.92)] px-12 backdrop-blur-md">
-          <div className="w-full max-w-md">
+        <section className="flex w-[46%] items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.92)] px-10 py-8 backdrop-blur-md">
+          <div className="w-full max-w-lg">
             <div className="mb-8 flex gap-2 rounded-2xl bg-[#E8EFE8] p-1">
               <button
                 type="button"
@@ -165,19 +168,32 @@ export function AuthPanel({ onAuthed }: Props) {
                   </select>
                 </label>
                 <fieldset>
-                  <legend className="mb-1.5 text-sm font-medium text-[var(--ink)]">
-                    성별 (캐릭터)
+                  <legend className="mb-2 text-sm font-medium text-[var(--ink)]">
+                    키울 동물
                   </legend>
-                  <div className="flex gap-3">
-                    <label className="choice">
-                      <input type="radio" name="gender" value="boy" defaultChecked />
-                      남
-                    </label>
-                    <label className="choice">
-                      <input type="radio" name="gender" value="girl" />
-                      여
-                    </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {ANIMALS.map((pet) => {
+                      const selected = animal === pet.id;
+                      return (
+                        <button
+                          key={pet.id}
+                          type="button"
+                          onClick={() => setAnimal(pet.id)}
+                          className={`rounded-2xl border px-1 py-2 text-center transition ${
+                            selected
+                              ? "border-[var(--brand)] bg-[#E7F4EC] shadow-sm"
+                              : "border-[var(--line)] bg-white hover:bg-[var(--panel-soft)]"
+                          }`}
+                        >
+                          <AnimalAvatar animal={pet.id} stage={1} size={58} />
+                          <span className="block text-[11px] font-semibold">{pet.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+                  <p className="mt-2 text-xs text-[var(--ink-muted)]">
+                    선택한 동물은 50마일리지마다 더 화려하고 귀엽게 진화합니다.
+                  </p>
                 </fieldset>
                 <button className="btn-primary w-full" disabled={loading}>
                   {loading ? "가입 중..." : "참여 시작"}

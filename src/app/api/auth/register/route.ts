@@ -1,6 +1,7 @@
 import { createSession, createUser } from "@/lib/store";
 import { SESSION_COOKIE, jsonError, toPublicUser } from "@/lib/auth";
-import type { Gender, Grade } from "@/lib/types";
+import { isAnimalId } from "@/lib/catalog";
+import type { AnimalId, Grade } from "@/lib/types";
 import { cookies } from "next/headers";
 
 const GRADES: Grade[] = [
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
     const displayName = String(body.displayName ?? "").trim();
     const password = String(body.password ?? "");
     const grade = body.grade as Grade;
-    const gender = body.gender as Gender;
+    const animal = body.animal as AnimalId;
 
     if (!username || username.length < 2) {
       return jsonError("아이디는 2자 이상이어야 합니다.");
@@ -31,8 +32,8 @@ export async function POST(req: Request) {
       return jsonError("비밀번호는 4자 이상이어야 합니다.");
     }
     if (!GRADES.includes(grade)) return jsonError("학년을 선택해 주세요.");
-    if (gender !== "boy" && gender !== "girl") {
-      return jsonError("성별을 선택해 주세요.");
+    if (!isAnimalId(animal)) {
+      return jsonError("키울 동물을 선택해 주세요.");
     }
 
     const user = await createUser({
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       displayName,
       password,
       grade,
-      gender,
+      animal,
       role: "participant",
     });
     const session = await createSession(user.id);

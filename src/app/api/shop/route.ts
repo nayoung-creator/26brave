@@ -1,7 +1,6 @@
 import { getCurrentUser, jsonError, toPublicUser } from "@/lib/auth";
-import { SHOP_ITEMS, getItem } from "@/lib/catalog";
+import { CARE_GAIN, SHOP_ITEMS, getItem } from "@/lib/catalog";
 import { updateDb } from "@/lib/store";
-import type { ItemCategory } from "@/lib/types";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -18,57 +17,60 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const action = String(body.action ?? "");
+  const itemId = String(body.itemId ?? "");
+  const item = getItem(itemId);
 
   try {
     if (action === "buy") {
-      const itemId = String(body.itemId ?? "");
-      const item = getItem(itemId);
-      if (!item) return jsonError("아이템을 찾을 수 없습니다.");
-      if (item.gender !== "any" && item.gender !== user.gender) {
-        return jsonError("내 성별에 맞는 아이템만 구매할 수 있습니다.");
+      if (!item || item.category !== "clothes") {
+        return jsonError("옷만 보관할 수 있습니다.");
       }
-
       const { result } = await updateDb((db) => {
         const target = db.users.find((u) => u.id === user.id);
         if (!target) throw new Error("USER_NOT_FOUND");
-        if (target.ownedItemIds.includes(itemId)) {
-          throw new Error("ALREADY_OWNED");
-        }
+        if (target.ownedClothesIds.includes(itemId)) throw new Error("ALREADY_OWNED");
         const available = target.mileage - target.spentMileage;
         if (available < item.price) throw new Error("NOT_ENOUGH");
         target.spentMileage += item.price;
-        target.ownedItemIds.push(itemId);
+        target.ownedClothesIds.push(itemId);
+        target.equippedClothesId = itemId;
         return target;
       });
       return Response.json({ user: await toPublicUser(result) });
     }
 
     if (action === "equip") {
-      const category = body.category as ItemCategory;
-      const itemId = String(body.itemId ?? "");
-      const item = getItem(itemId);
-      if (!item || item.category !== category) {
-        return jsonError("잘못된 아이템입니다.");
+      if (!item || item.category !== "clothes") {
+        return jsonError("옷만 입힐 수 있습니다.");
       }
-
       const { result } = await updateDb((db) => {
         const target = db.users.find((u) => u.id === user.id);
         if (!target) throw new Error("USER_NOT_FOUND");
-        if (!target.ownedItemIds.includes(itemId)) {
-          throw new Error("NOT_OWNED");
-        }
-        target.equipped[category] = itemId;
+        if (!target.ownedClothesIds.includes(itemId)) throw new Error("NOT_OWNED");
+        target.equippedClothesId =
+          target.equippedClothesId === itemId ? null : itemId;
         return target;
       });
       return Response.json({ user: await toPublicUser(result) });
     }
 
-    if (action === "setGender") {
-      const gender = body.gender === "girl" ? "girl" : "boy";
+    if (action === "feed") {
+      if (!item || (item.category !== "food" && item.category !== "snack")) {
+        return jsonError("먹이 또는 간식만 줄 수 있습니다.");
+      }
       const { result } = await updateDb((db) => {
         const target = db.users.find((u) => u.id === user.id);
         if (!target) throw new Error("USER_NOT_FOUND");
-        target.gender = gender;
+        const available = target.mileage - target.spentMileage;
+        if (available < item.price) throw new Error("NOT_ENOUGH");
+        target.spentMileage += item.price;
+        if (item.category === "food") {
+          target.fullness = Math.min(100, target.fullness + CARE_GAIN);
+          target.mealsFed += 1;
+        } else {
+          target.happiness = Math.min(100, target.happiness + CARE_GAIN);
+          target.snacksFed += 1;
+        }
         return target;
       });
       return Response.json({ user: await toPublicUser(result) });
@@ -78,13 +80,13 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "ALREADY_OWNED") {
-        return jsonError("이미 보유한 아이템입니다.");
+        return jsonError("이미 가지고 있는 옷입니다.");
       }
       if (error.message === "NOT_ENOUGH") {
-        return jsonError("마일리지가 부족합니다. 운동장 바퀴를 더 달려 보세요!");
+        return jsonError("마일리지가 부족합니다. 운동장을 더 달려 보세요!");
       }
       if (error.message === "NOT_OWNED") {
-        return jsonError("보유하지 않은 아이템입니다.");
+        return jsonError("아직 구매하지 않은 옷입니다.");
       }
     }
     return jsonError("상점 처리에 실패했습니다.", 500);
