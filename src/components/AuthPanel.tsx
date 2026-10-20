@@ -156,9 +156,6 @@ export function AuthPanel({ onAuthed }: Props) {
                 <button className="btn-primary w-full" disabled={loading}>
                   {loading ? "확인 중..." : "입장하기"}
                 </button>
-                <p className="text-center text-xs text-[var(--ink-muted)]">
-                  관리자 체험: <code>admin</code> / <code>admin123</code>
-                </p>
               </form>
             ) : (
               <form onSubmit={handleRegister} className="space-y-4">

@@ -193,6 +193,26 @@ export function Dashboard({ user, onUserChange }: Props) {
     await loadAdmin();
   }
 
+  async function deleteAccount(userId: string, displayName: string) {
+    const ok = window.confirm(
+      `${displayName} 계정을 삭제할까요? 마일리지와 운동장 기록도 함께 지워집니다.`,
+    );
+    if (!ok) return;
+    const res = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error ?? "삭제 실패");
+      return;
+    }
+    setMessage(`${data.displayName} 계정을 삭제했습니다.`);
+    setRevealId(null);
+    await Promise.all([loadAdmin(), loadParticipants()]);
+  }
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     onUserChange(null);
@@ -614,7 +634,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel h-full overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                일반 계정의 마일리지와 비밀번호를 확인하고 초기화할 수 있습니다.
+                계정의 마일리지와 비밀번호를 확인하고, 다른 계정을 삭제할 수 있습니다.
               </p>
               <div className="overflow-hidden rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -666,13 +686,28 @@ export function Dashboard({ user, onUserChange }: Props) {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            className="btn-ghost px-3 py-1.5 text-xs"
-                            onClick={() => resetPassword(u.id)}
-                          >
-                            초기화
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="btn-ghost px-3 py-1.5 text-xs"
+                              onClick={() => resetPassword(u.id)}
+                            >
+                              초기화
+                            </button>
+                            {u.id === user.id ? (
+                              <span className="self-center text-xs text-[var(--ink-muted)]">
+                                현재 계정
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="rounded-xl bg-[#FDECEC] px-3 py-1.5 text-xs font-semibold text-[#B42318]"
+                                onClick={() => deleteAccount(u.id, u.displayName)}
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
