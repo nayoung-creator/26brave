@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #e9f3ea;
+  --panel: #fbfaf6;
+  --panel-soft: #eef5ef;
+  --brand: #1f6b4a;
+  --accent: #d96b2b;
+  --ink: #1c2b22;
+  --ink-muted: #5d6f64;
+  --line: #d5e2d7;
+  --sky-top: #7ec8e3;
+  --sky-mid: #a8dcc0;
+  --field: #3fa66a;
+  --track: #c75b39;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+  overflow: auto;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: var(--font-body), "Apple SD Gothic Neo", sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), "Apple SD Gothic Neo", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.auth-hero {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 236, 170, 0.55), transparent 28%),
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.25), transparent 24%),
+    linear-gradient(165deg, #5fb4d6 0%, #7ec8a8 42%, #3f9d63 78%, #2f7f4d 100%);
+  animation: sky-shift 14s ease-in-out infinite alternate;
+}
+
+.auth-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.track-sky {
+  background:
+    radial-gradient(circle at 70% 12%, rgba(255, 236, 170, 0.55), transparent 22%),
+    linear-gradient(180deg, #8fd0e8 0%, #b7e2c8 55%, #8fd0a8 100%);
+}
+
+.field-wash {
+  background: linear-gradient(180deg, transparent, rgba(47, 127, 77, 0.18));
+}
+
+.panel {
+  @apply rounded-[28px] bg-[var(--panel)] p-6 shadow-[0_10px_30px_rgba(31,70,50,0.08)];
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.section-title {
+  @apply font-display text-2xl text-[var(--ink)];
+}
+
+.field {
+  @apply w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2.5 text-sm outline-none transition;
+}
+
+.field:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(31, 107, 74, 0.15);
+}
+
+.btn-primary {
+  @apply rounded-xl bg-[var(--brand)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-accent {
+  @apply rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110;
+}
+
+.btn-ghost {
+  @apply rounded-xl border border-[var(--line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--panel-soft)];
+}
+
+.choice {
+  @apply flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-white px-3 py-2.5 text-sm font-medium;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--brand);
+  background: #e7f4ec;
+}
+
+.record-row {
+  @apply flex items-center justify-between rounded-2xl bg-[var(--panel-soft)] px-4 py-3;
+}
+
+@keyframes sky-shift {
+  from {
+    filter: saturate(1);
+  }
+  to {
+    filter: saturate(1.12) brightness(1.03);
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-6px);
+  }
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
