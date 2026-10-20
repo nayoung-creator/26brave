@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import { Pool, type PoolClient } from "pg";
 import type {
   AnimalId,
   Database,
@@ -12,6 +13,136 @@ import { isAnimalId } from "./catalog";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "store.json");
+
+let fileQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueFile<T>(task: () => Promise<T>): Promise<T> {
+  const run = fileQueue.then(task, task);
+  fileQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+let pool: Pool | null = null;
+let schemaReady: Promise<void> | null = null;
+
+export function storageMode(): "postgres" | "file" {
+  return process.env.DATABASE_URL ? "postgres" : "file";
+}
+
+function databaseUrl() {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) throw new Error("DATABASE_URL is not set");
+  const url = new URL(raw);
+  url.hostname = url.hostname.replace("-pooler", "");
+  url.searchParams.delete("channel_binding");
+  if (!url.searchParams.has("sslmode")) url.searchParams.set("sslmode", "require");
+  return url.toString();
+}
+
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: databaseUrl(),
+      ssl: { rejectUnauthorized: false },
+      max: 8,
+      connectionTimeoutMillis: 15000,
+    });
+  }
+  return pool;
+}
+
+async function ensureSchema(client: PoolClient) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS school_run_state (
+      id INTEGER PRIMARY KEY,
+      doc JSONB NOT NULL
+    )
+  `);
+  const existing = await client.query(
+    "SELECT id FROM school_run_state WHERE id = 1",
+  );
+  if (existing.rowCount === 0) {
+    const db = emptyDb();
+    db.users.push(
+      freshUser({
+        id: randomUUID(),
+        username: "admin",
+        displayName: "관리자",
+        passwordPlain: "admin123",
+        role: "admin",
+        grade: "교직원",
+        animal: "dog",
+        mileage: 0,
+        spentMileage: 0,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    await client.query(
+      "INSERT INTO school_run_state (id, doc) VALUES (1, $1::jsonb)",
+      [JSON.stringify(db)],
+    );
+  }
+}
+
+function preparePg() {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      const client = await getPool().connect();
+      try {
+        await ensureSchema(client);
+      } finally {
+        client.release();
+      }
+    })().catch((error) => {
+      schemaReady = null;
+      throw error;
+    });
+  }
+  return schemaReady;
+}
+
+function normalizeDb(raw: Partial<Database> | null | undefined): Database {
+  return {
+    users: (raw?.users ?? []).map((user) => normalizeUser(user)),
+    sessions: raw?.sessions ?? [],
+    laps: raw?.laps ?? [],
+  };
+}
+
+async function readPg(): Promise<Database> {
+  await preparePg();
+  const result = await getPool().query(
+    "SELECT doc FROM school_run_state WHERE id = 1",
+  );
+  return normalizeDb(result.rows[0]?.doc as Database | undefined);
+}
+
+async function updatePg<T>(mutator: (db: Database) => T) {
+  await preparePg();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "SELECT doc FROM school_run_state WHERE id = 1 FOR UPDATE",
+    );
+    const db = normalizeDb(result.rows[0]?.doc as Database | undefined);
+    const value = mutator(db);
+    await client.query(
+      "UPDATE school_run_state SET doc = $1::jsonb WHERE id = 1",
+      [JSON.stringify(db)],
+    );
+    await client.query("COMMIT");
+    return { result: value, db };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 function emptyDb(): Database {
   return { users: [], sessions: [], laps: [] };
@@ -55,18 +186,16 @@ function normalizeUser(raw: Partial<User> & { animal?: unknown }): User {
   };
 }
 
-async function ensureDb(): Promise<Database> {
+async function loadFile(): Promise<Database> {
   await fs.mkdir(DATA_DIR, { recursive: true });
   try {
     const raw = await fs.readFile(DB_PATH, "utf8");
     const parsed = JSON.parse(raw) as Database;
-    const users = (parsed.users ?? []).map((user) => normalizeUser(user));
-    const changed = JSON.stringify(users) !== JSON.stringify(parsed.users);
-    parsed.users = users;
-    parsed.sessions = parsed.sessions ?? [];
-    parsed.laps = parsed.laps ?? [];
-    if (changed) await writeDb(parsed);
-    return parsed;
+    const db = normalizeDb(parsed);
+    if (JSON.stringify(db.users) !== JSON.stringify(parsed.users)) {
+      await saveFile(db);
+    }
+    return db;
   } catch {
     const db = emptyDb();
     db.users.push(
@@ -83,36 +212,42 @@ async function ensureDb(): Promise<Database> {
         createdAt: new Date().toISOString(),
       }),
     );
-    await writeDb(db);
+    await saveFile(db);
     return db;
   }
 }
 
-async function writeDb(db: Database) {
+async function saveFile(db: Database) {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), "utf8");
+  const tmp = `${DB_PATH}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(db, null, 2), "utf8");
+  await fs.rename(tmp, DB_PATH);
 }
 
 export async function readDb() {
-  return ensureDb();
+  if (process.env.DATABASE_URL) return readPg();
+  return enqueueFile(() => loadFile());
 }
 
 export async function updateDb<T>(
   mutator: (db: Database) => T,
 ): Promise<{ result: T; db: Database }> {
-  const db = await ensureDb();
-  const result = mutator(db);
-  await writeDb(db);
-  return { result, db };
+  if (process.env.DATABASE_URL) return updatePg(mutator);
+  return enqueueFile(async () => {
+    const db = await loadFile();
+    const result = mutator(db);
+    await saveFile(db);
+    return { result, db };
+  });
 }
 
 export async function findUserByUsername(username: string) {
-  const db = await ensureDb();
+  const db = await readDb();
   return db.users.find((u) => u.username === username) ?? null;
 }
 
 export async function findUserById(id: string) {
-  const db = await ensureDb();
+  const db = await readDb();
   return db.users.find((u) => u.id === id) ?? null;
 }
 
@@ -167,7 +302,7 @@ export async function deleteSession(token: string) {
 
 export async function getSessionUser(token: string | undefined | null) {
   if (!token) return null;
-  const db = await ensureDb();
+  const db = await readDb();
   const session = db.sessions.find((s) => s.token === token);
   if (!session) return null;
   return db.users.find((u) => u.id === session.userId) ?? null;

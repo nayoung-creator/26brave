@@ -219,8 +219,8 @@ export function Dashboard({ user, onUserChange }: Props) {
   }, [user]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--canvas)]">
-      <aside className="flex w-[260px] shrink-0 flex-col border-r border-[var(--line)] bg-[var(--panel)]">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] md:flex-row">
+      <aside className="flex w-full shrink-0 flex-col border-b border-[var(--line)] bg-[var(--panel)] md:h-full md:w-[260px] md:border-b-0 md:border-r">
         <div className="border-b border-[var(--line)] px-6 py-7">
           <div className="font-display text-3xl leading-none text-[var(--brand)]">
             1·2·3 런
@@ -230,7 +230,7 @@ export function Dashboard({ user, onUserChange }: Props) {
           </p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-3">
+        <nav className="flex gap-1 overflow-x-auto p-3 md:flex-1 md:flex-col">
           {visibleTabs.map((t) => (
             <button
               key={t.id}
@@ -239,7 +239,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                 setMessage("");
                 setTab(t.id);
               }}
-              className={`rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+              className={`whitespace-nowrap rounded-xl px-4 py-3 text-left text-sm font-semibold transition md:whitespace-normal ${
                 tab === t.id
                   ? "bg-[var(--brand)] text-white shadow-md"
                   : "text-[var(--ink)] hover:bg-[var(--panel-soft)]"

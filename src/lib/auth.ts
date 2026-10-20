@@ -10,6 +10,16 @@ import type { AdminUserView, PublicUser, User } from "./types";
 
 export const SESSION_COOKIE = "run_session";
 
+export function sessionCookie(maxAge?: number) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    ...(maxAge !== undefined ? { maxAge } : {}),
+  };
+}
+
 export async function getCurrentUser() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;

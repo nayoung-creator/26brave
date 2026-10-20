@@ -74,16 +74,16 @@ export function AuthPanel({ onAuthed }: Props) {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden">
+    <div className="relative flex min-h-screen w-full overflow-auto">
       <div className="absolute inset-0 auth-hero" />
       <div className="absolute inset-0 auth-grain" />
 
-      <div className="relative z-10 flex min-h-screen w-full">
-        <section className="flex w-[54%] flex-col justify-end px-16 pb-20 pt-16">
+      <div className="relative z-10 flex min-h-screen w-full flex-col lg:flex-row">
+        <section className="flex w-full flex-col justify-end px-8 pb-10 pt-12 lg:w-[54%] lg:px-16 lg:pb-20 lg:pt-16">
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
           </p>
-          <h1 className="font-display text-[5.5rem] leading-[0.95] text-white drop-shadow-sm">
+          <h1 className="font-display text-6xl leading-[0.95] text-white drop-shadow-sm lg:text-[5.5rem]">
             1·2·3 런
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#F7F3E8]">
@@ -104,9 +104,25 @@ export function AuthPanel({ onAuthed }: Props) {
               <div className="text-sm opacity-80">3km 도전</div>
             </div>
           </div>
+          <a
+            href="/join"
+            className="mt-8 inline-flex w-fit items-center gap-4 rounded-3xl bg-white/90 px-4 py-3 text-[var(--ink)] shadow-lg"
+          >
+            <img
+              src="/api/qr"
+              alt="접속 QR 코드"
+              className="h-24 w-24 rounded-xl bg-white"
+            />
+            <span>
+              <span className="block text-sm font-bold">학생·교직원 배포 QR</span>
+              <span className="mt-1 block max-w-[16rem] text-xs leading-relaxed text-[var(--ink-muted)]">
+                휴대폰과 컴퓨터가 이 주소로 같은 기록을 공유합니다.
+              </span>
+            </span>
+          </a>
         </section>
 
-        <section className="flex w-[46%] items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.92)] px-10 py-8 backdrop-blur-md">
+        <section className="flex w-full items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.92)] px-6 py-8 backdrop-blur-md lg:w-[46%] lg:px-10">
           <div className="w-full max-w-lg">
             <div className="mb-8 flex gap-2 rounded-2xl bg-[#E8EFE8] p-1">
               <button
@@ -171,7 +187,7 @@ export function AuthPanel({ onAuthed }: Props) {
                   <legend className="mb-2 text-sm font-medium text-[var(--ink)]">
                     키울 동물
                   </legend>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     {ANIMALS.map((pet) => {
                       const selected = animal === pet.id;
                       return (

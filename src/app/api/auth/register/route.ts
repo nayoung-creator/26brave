@@ -1,5 +1,5 @@
 import { createSession, createUser } from "@/lib/store";
-import { SESSION_COOKIE, jsonError, toPublicUser } from "@/lib/auth";
+import { SESSION_COOKIE, jsonError, sessionCookie, toPublicUser } from "@/lib/auth";
 import { isAnimalId } from "@/lib/catalog";
 import type { AnimalId, Grade } from "@/lib/types";
 import { cookies } from "next/headers";
@@ -46,11 +46,7 @@ export async function POST(req: Request) {
     });
     const session = await createSession(user.id);
     const jar = await cookies();
-    jar.set(SESSION_COOKIE, session.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
+    jar.set(SESSION_COOKIE, session.token, sessionCookie());
 
     return Response.json({ user: await toPublicUser(user) });
   } catch (error) {
