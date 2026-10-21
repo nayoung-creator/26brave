@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { Dashboard } from "@/components/Dashboard";
+import { cloud, readToken } from "@/lib/cloud";
 import type { PublicUser } from "@/lib/types";
 
 export default function HomePage() {
@@ -13,11 +14,9 @@ export default function HomePage() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          if (alive) setUser(data.user);
-        }
+        if (!readToken()) return;
+        const res = await cloud("me");
+        if (res.ok && res.data.user && alive) setUser(res.data.user);
       } finally {
         if (alive) setLoading(false);
       }

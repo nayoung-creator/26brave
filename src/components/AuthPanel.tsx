@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
+import { SiteQr } from "./SiteQr";
+import { login, register } from "@/lib/cloud";
 import { ANIMALS } from "@/lib/catalog";
 import type { AnimalId, Grade, PublicUser } from "@/lib/types";
 
@@ -31,21 +33,13 @@ export function AuthPanel({ onAuthed }: Props) {
     setLoading(true);
     setError("");
     const fd = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: fd.get("username"),
-        password: fd.get("password"),
-      }),
-    });
-    const data = await res.json();
+    const res = await login(String(fd.get("username") ?? ""), String(fd.get("password") ?? ""));
     setLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "로그인 실패");
+    if (!res.ok || !res.data.user) {
+      setError(res.data.error ?? "로그인 실패");
       return;
     }
-    onAuthed(data.user);
+    onAuthed(res.data.user);
   }
 
   async function handleRegister(e: FormEvent<HTMLFormElement>) {
@@ -53,24 +47,19 @@ export function AuthPanel({ onAuthed }: Props) {
     setLoading(true);
     setError("");
     const fd = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: fd.get("username"),
-        displayName: fd.get("displayName"),
-        password: fd.get("password"),
-        grade: fd.get("grade"),
-        animal,
-      }),
+    const res = await register({
+      username: String(fd.get("username") ?? ""),
+      displayName: String(fd.get("displayName") ?? ""),
+      password: String(fd.get("password") ?? ""),
+      grade: String(fd.get("grade") ?? ""),
+      animal,
     });
-    const data = await res.json();
     setLoading(false);
-    if (!res.ok) {
-      setError(data.error ?? "가입 실패");
+    if (!res.ok || !res.data.user) {
+      setError(res.data.error ?? "가입 실패");
       return;
     }
-    onAuthed(data.user);
+    onAuthed(res.data.user);
   }
 
   return (
@@ -105,11 +94,10 @@ export function AuthPanel({ onAuthed }: Props) {
             </div>
           </div>
           <a
-            href="/join"
+            href="/join/"
             className="mt-8 inline-flex w-fit items-center gap-4 rounded-3xl bg-white/90 px-4 py-3 text-[var(--ink)] shadow-lg"
           >
-            <img
-              src="/api/qr"
+            <SiteQr
               alt="접속 QR 코드"
               className="h-24 w-24 rounded-xl bg-white"
             />

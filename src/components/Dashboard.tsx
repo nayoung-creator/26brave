@@ -4,6 +4,12 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
 import { PlaygroundTrack } from "./PlaygroundTrack";
 import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
+import {
+  adminUsers as fetchAdminUsers,
+  cloud,
+  logout as cloudLogout,
+  participants as fetchParticipants,
+} from "@/lib/cloud";
 import type {
   AdminUserView,
   EvolutionStage,
@@ -57,34 +63,30 @@ export function Dashboard({ user, onUserChange }: Props) {
 
   const loadRecords = useCallback(async () => {
     const [todayRes, monthRes] = await Promise.all([
-      fetch("/api/laps?range=today"),
-      fetch("/api/laps?range=month"),
+      cloud("laps", { range: "today" }),
+      cloud("laps", { range: "month" }),
     ]);
-    if (todayRes.ok) {
-      const data = await todayRes.json();
-      setLapsToday(data.laps);
-      if (data.me) onUserChange(data.me);
+    if (todayRes.ok && todayRes.data.laps) {
+      setLapsToday(todayRes.data.laps);
+      if (todayRes.data.me) onUserChange(todayRes.data.me);
     }
-    if (monthRes.ok) {
-      const data = await monthRes.json();
-      setLapsMonth(data.laps);
+    if (monthRes.ok && monthRes.data.laps) {
+      setLapsMonth(monthRes.data.laps);
     }
   }, [onUserChange]);
 
   const loadParticipants = useCallback(async () => {
-    const res = await fetch("/api/users");
-    if (res.ok) {
-      const data = await res.json();
-      setParticipants(data.users);
+    const res = await fetchParticipants();
+    if (res.ok && res.data.users) {
+      setParticipants(res.data.users);
     }
   }, []);
 
   const loadAdmin = useCallback(async () => {
     if (user.role !== "admin") return;
-    const res = await fetch("/api/admin/users");
-    if (res.ok) {
-      const data = await res.json();
-      setAdminUsers(data.users);
+    const res = await fetchAdminUsers();
+    if (res.ok && res.data.users) {
+      setAdminUsers(res.data.users as AdminUserView[]);
     }
   }, [user.role]);
 
@@ -94,6 +96,15 @@ export function Dashboard({ user, onUserChange }: Props) {
   }, [loadRecords, loadParticipants]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadRecords();
+      void loadParticipants();
+      if (user.role === "admin") void loadAdmin();
+    }, 8000);
+    return () => window.clearInterval(timer);
+  }, [loadRecords, loadParticipants, loadAdmin, user.role]);
+
+  useEffect(() => {
     if (tab === "admin") void loadAdmin();
     if (tab === "track") void loadParticipants();
   }, [tab, loadAdmin, loadParticipants]);
@@ -101,16 +112,12 @@ export function Dashboard({ user, onUserChange }: Props) {
   async function submitLaps(e: FormEvent) {
     e.preventDefault();
     setMessage("");
-    const res = await fetch("/api/laps", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ laps: lapInput, note }),
-    });
-    const data = await res.json();
+    const res = await cloud("addLap", { laps: lapInput, note });
     if (!res.ok) {
-      setMessage(data.error ?? "저장 실패");
+      setMessage(res.data.error ?? "저장 실패");
       return;
     }
+    const data = res.data;
     setMessage(`${lapInput}바퀴 기록! 마일리지 +${lapInput}`);
     setNote("");
     setLapInput(1);
@@ -122,17 +129,12 @@ export function Dashboard({ user, onUserChange }: Props) {
   async function buyItem(item: ShopItem) {
     setMessage("");
     const action = item.category === "clothes" ? "buy" : "feed";
-    const res = await fetch("/api/shop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, itemId: item.id }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error ?? "구매 실패");
+    const res = await cloud(action, { itemId: item.id });
+    if (!res.ok || !res.data.user) {
+      setMessage(res.data.error ?? "구매 실패");
       return;
     }
-    onUserChange(data.user);
+    if (res.data.user) onUserChange(res.data.user);
     if (item.category === "food") {
       setMessage(`${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`);
     } else if (item.category === "snack") {
@@ -143,33 +145,23 @@ export function Dashboard({ user, onUserChange }: Props) {
   }
 
   async function equipItem(item: ShopItem) {
-    const res = await fetch("/api/shop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "equip", itemId: item.id }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error ?? "착용 실패");
+    const res = await cloud("equip", { itemId: item.id });
+    if (!res.ok || !res.data.user) {
+      setMessage(res.data.error ?? "착용 실패");
       return;
     }
-    onUserChange(data.user);
+    if (res.data.user) onUserChange(res.data.user);
   }
 
   async function changePassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/password", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        currentPassword: fd.get("currentPassword"),
-        newPassword: fd.get("newPassword"),
-      }),
+    const res = await cloud("password", {
+      currentPassword: fd.get("currentPassword"),
+      newPassword: fd.get("newPassword"),
     });
-    const data = await res.json();
     if (!res.ok) {
-      setMessage(data.error ?? "변경 실패");
+      setMessage(res.data.error ?? "변경 실패");
       return;
     }
     setMessage("비밀번호가 변경되었습니다.");
@@ -179,17 +171,12 @@ export function Dashboard({ user, onUserChange }: Props) {
   async function resetPassword(userId: string) {
     const next = window.prompt("새 비밀번호를 입력하세요", "1234");
     if (!next) return;
-    const res = await fetch("/api/admin/password", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, newPassword: next }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMessage(data.error ?? "초기화 실패");
+    const res = await cloud("adminPassword", { userId, newPassword: next });
+    if (!res.ok || !res.data.user) {
+      setMessage(res.data.error ?? "초기화 실패");
       return;
     }
-    setMessage(`${data.user.displayName} 비밀번호를 초기화했습니다.`);
+    setMessage(`${res.data.user.displayName} 비밀번호를 초기화했습니다.`);
     await loadAdmin();
   }
 
@@ -198,23 +185,19 @@ export function Dashboard({ user, onUserChange }: Props) {
       `${displayName} 계정을 삭제할까요? 마일리지와 운동장 기록도 함께 지워집니다.`,
     );
     if (!ok) return;
-    const res = await fetch("/api/admin/users", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
-    const data = await res.json();
+    const res = await cloud("adminDelete", { userId });
     if (!res.ok) {
-      setMessage(data.error ?? "삭제 실패");
+      setMessage(res.data.error ?? "삭제 실패");
       return;
     }
+    const data = res.data;
     setMessage(`${data.displayName} 계정을 삭제했습니다.`);
     setRevealId(null);
     await Promise.all([loadAdmin(), loadParticipants()]);
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await cloudLogout();
     onUserChange(null);
   }
 
@@ -245,8 +228,8 @@ export function Dashboard({ user, onUserChange }: Props) {
           <div className="font-display text-3xl leading-none text-[var(--brand)]">
             1·2·3 런
           </div>
-          <p className="mt-2 text-xs text-[var(--ink-muted)]">
-            학교 운동장 마일리지 프로젝트
+          <p className="mt-2 text-xs leading-relaxed text-[var(--ink-muted)]">
+            다른 휴대폰·컴퓨터의 기록도 이 화면에 모입니다.
           </p>
         </div>
 
