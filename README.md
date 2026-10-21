@@ -11,6 +11,8 @@ npm run dev
 
 브라우저에서 [http://localhost:3000](http://localhost:3000) 을 엽니다.
 
+학생과 교직원이 쓰는 주소는 [https://26brave-run.surge.sh](https://26brave-run.surge.sh) 입니다. 이 주소는 이 컴퓨터를 꺼도 그대로 열립니다.
+
 ## 계정
 
 - 참가자는 회원가입으로 아이디와 비밀번호를 만듭니다.

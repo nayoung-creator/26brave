@@ -52,7 +52,8 @@ export async function cloud(
       method: "POST",
       cache: "no-store",
       headers: {
-        "Content-Type": "application/json",
+        // Neon allows the connection header on browser preflight, but not Content-Type.
+        // A string body is sent as text/plain, which does not need that permission.
         "Neon-Connection-String": connection,
       },
       body: JSON.stringify({
