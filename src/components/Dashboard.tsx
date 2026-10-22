@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
 import { PlaygroundTrack } from "./PlaygroundTrack";
 import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
@@ -60,6 +60,22 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [message, setMessage] = useState("");
   const [shopCategory, setShopCategory] = useState<ItemCategory>("clothes");
   const [revealId, setRevealId] = useState<string | null>(null);
+  const [treat, setTreat] = useState<{ emoji: string; token: number } | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pops, setPops] = useState<{
+    token: number;
+    fullness: number;
+    happiness: number;
+  } | null>(null);
+  const pauseSync = useRef(false);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const loadRecords = useCallback(async () => {
     const [todayRes, monthRes] = await Promise.all([
@@ -68,7 +84,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     ]);
     if (todayRes.ok && todayRes.data.laps) {
       setLapsToday(todayRes.data.laps);
-      if (todayRes.data.me) onUserChange(todayRes.data.me);
+      if (todayRes.data.me && !pauseSync.current) onUserChange(todayRes.data.me);
     }
     if (monthRes.ok && monthRes.data.laps) {
       setLapsMonth(monthRes.data.laps);
@@ -127,21 +143,47 @@ export function Dashboard({ user, onUserChange }: Props) {
   }
 
   async function buyItem(item: ShopItem) {
+    if (pendingId) return;
     setMessage("");
+    setPendingId(item.id);
+    const before = { fullness: user.fullness, happiness: user.happiness };
     const action = item.category === "clothes" ? "buy" : "feed";
     const res = await cloud(action, { itemId: item.id });
+    if (!alive.current) return;
     if (!res.ok || !res.data.user) {
+      setPendingId(null);
       setMessage(res.data.error ?? "구매 실패");
       return;
     }
-    if (res.data.user) onUserChange(res.data.user);
-    if (item.category === "food") {
-      setMessage(`${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`);
-    } else if (item.category === "snack") {
-      setMessage(`${item.name}을(를) 줬어요. 행복이 올랐습니다.`);
-    } else {
+    const nextUser = res.data.user;
+    if (item.category === "clothes") {
+      onUserChange(nextUser);
+      setPendingId(null);
       setMessage(`${item.name}을(를) 사서 입혔어요.`);
+      return;
     }
+    pauseSync.current = true;
+    setTreat({ emoji: item.emoji, token: Date.now() });
+    window.setTimeout(() => {
+      if (!alive.current) return;
+      onUserChange(nextUser);
+      setPops({
+        token: Date.now(),
+        fullness: Math.max(0, nextUser.fullness - before.fullness),
+        happiness: Math.max(0, nextUser.happiness - before.happiness),
+      });
+      setMessage(
+        item.category === "food"
+          ? `${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`
+          : `${item.name}을(를) 줬어요. 행복지수가 올랐습니다.`,
+      );
+    }, 1400);
+    window.setTimeout(() => {
+      if (!alive.current) return;
+      setTreat(null);
+      pauseSync.current = false;
+      setPendingId(null);
+    }, 2500);
   }
 
   async function equipItem(item: ShopItem) {
@@ -440,12 +482,13 @@ export function Dashboard({ user, onUserChange }: Props) {
                 <p className="text-sm text-[var(--ink-muted)]">
                   지금 키우는 친구 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
                 </p>
-                <div className="my-3 flex justify-center">
+                <div className="my-3 flex justify-center py-2">
                   <AnimalAvatar
                     animal={user.animal}
                     stage={user.stage}
                     clothesId={user.equippedClothesId}
                     size={210}
+                    treat={treat}
                   />
                 </div>
                 <EvolutionBar mileage={user.mileage} />
@@ -474,8 +517,20 @@ export function Dashboard({ user, onUserChange }: Props) {
                   })}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <Meter label="포만감" value={user.fullness} hint={`먹이 ${user.mealsFed}회`} />
-                  <Meter label="행복" value={user.happiness} hint={`간식 ${user.snacksFed}회`} />
+                  <Meter
+                    label="포만감"
+                    value={user.fullness}
+                    hint={`먹이 ${user.mealsFed}회`}
+                    gain={pops && pops.fullness > 0 ? pops.fullness : 0}
+                    gainKey={pops?.token ?? 0}
+                  />
+                  <Meter
+                    label="행복지수"
+                    value={user.happiness}
+                    hint={`간식 ${user.snacksFed}회`}
+                    gain={pops && pops.happiness > 0 ? pops.happiness : 0}
+                    gainKey={pops?.token ?? 0}
+                  />
                 </div>
               </div>
 
@@ -520,6 +575,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                           <button
                             type="button"
                             className="btn-primary w-full"
+                            disabled={pendingId !== null}
                             onClick={() => equipItem(item)}
                           >
                             {equipped ? "벗기기" : "입히기"}
@@ -528,13 +584,18 @@ export function Dashboard({ user, onUserChange }: Props) {
                           <button
                             type="button"
                             className="btn-accent w-full"
+                            disabled={pendingId !== null}
                             onClick={() => buyItem(item)}
                           >
-                            {item.category === "clothes"
-                              ? "사서 입히기"
-                              : item.category === "food"
-                                ? "먹이 주기"
-                                : "간식 주기"}
+                            {pendingId === item.id
+                              ? item.category === "clothes"
+                                ? "입히는 중..."
+                                : "주는 중..."
+                              : item.category === "clothes"
+                                ? "사서 입히기"
+                                : item.category === "food"
+                                  ? "먹이 주기"
+                                  : "간식 주기"}
                           </button>
                         )}
                       </div>
@@ -750,22 +811,37 @@ function Meter({
   label,
   value,
   hint,
+  gain = 0,
+  gainKey = 0,
 }: {
   label: string;
   value: number;
   hint: string;
+  gain?: number;
+  gainKey?: number;
 }) {
   return (
-    <div className="rounded-2xl bg-[var(--panel-soft)] px-3 py-3">
+    <div className="relative overflow-visible rounded-2xl bg-[var(--panel-soft)] px-3 py-3">
       <div className="flex justify-between text-xs">
         <span className="font-semibold">{label}</span>
         <span className="text-[var(--ink-muted)]">{hint}</span>
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-        <div
-          className="h-full rounded-full bg-[var(--accent)]"
-          style={{ width: `${value}%` }}
-        />
+      <div className="relative mt-2">
+        <div className="h-2 overflow-hidden rounded-full bg-white">
+          <div
+            className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
+            style={{ width: `${value}%` }}
+          />
+        </div>
+        {gain > 0 ? (
+          <span
+            key={gainKey}
+            className="stat-float pointer-events-none absolute -top-4 z-10 rounded-full bg-white px-2 py-0.5 text-lg font-extrabold text-[var(--accent)] shadow"
+            style={{ left: `calc(${Math.min(Math.max(value, 8), 78)}% - 0.4rem)` }}
+          >
+            +{gain}
+          </span>
+        ) : null}
       </div>
     </div>
   );
