@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import dynamic from "next/dynamic";
+import { FormEvent, useEffect, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
-import { SiteQr } from "./SiteQr";
 import { login, register } from "@/lib/cloud";
 import { ANIMALS } from "@/lib/catalog";
 import type { AnimalId, Grade, PublicUser } from "@/lib/types";
@@ -18,8 +18,25 @@ const GRADES: Grade[] = [
   "교직원",
 ];
 
+const SiteQr = dynamic(
+  () => import("./SiteQr").then((mod) => mod.SiteQr),
+  { ssr: false, loading: () => <div className="h-24 w-24 rounded-xl bg-white" /> },
+);
+
 interface Props {
   onAuthed: (user: PublicUser) => void;
+}
+
+function useDesktopQr() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setShow(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  return show;
 }
 
 export function AuthPanel({ onAuthed }: Props) {
@@ -27,6 +44,7 @@ export function AuthPanel({ onAuthed }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [animal, setAnimal] = useState<AnimalId>("dog");
+  const showQr = useDesktopQr();
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -68,7 +86,7 @@ export function AuthPanel({ onAuthed }: Props) {
       <div className="absolute inset-0 auth-grain" />
 
       <div className="relative z-10 flex min-h-screen w-full flex-col lg:flex-row">
-        <section className="flex w-full flex-col justify-end px-8 pb-10 pt-12 lg:w-[54%] lg:px-16 lg:pb-20 lg:pt-16">
+        <section className="hidden w-full flex-col justify-end px-8 pb-10 pt-12 lg:flex lg:w-[54%] lg:px-16 lg:pb-20 lg:pt-16">
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
           </p>
@@ -93,25 +111,36 @@ export function AuthPanel({ onAuthed }: Props) {
               <div className="text-sm opacity-80">3km 도전</div>
             </div>
           </div>
-          <a
-            href="/join/"
-            className="mt-8 inline-flex w-fit items-center gap-4 rounded-3xl bg-white/90 px-4 py-3 text-[var(--ink)] shadow-lg"
-          >
-            <SiteQr
-              alt="접속 QR 코드"
-              className="h-24 w-24 rounded-xl bg-white"
-            />
-            <span>
-              <span className="block text-sm font-bold">학생·교직원 배포 QR</span>
-              <span className="mt-1 block max-w-[16rem] text-xs leading-relaxed text-[var(--ink-muted)]">
-                휴대폰과 컴퓨터가 이 주소로 같은 기록을 공유합니다.
+          {showQr ? (
+            <a
+              href="/join/"
+              className="mt-8 inline-flex w-fit items-center gap-4 rounded-3xl bg-white/90 px-4 py-3 text-[var(--ink)] shadow-lg"
+            >
+              <SiteQr
+                alt="접속 QR 코드"
+                className="h-24 w-24 rounded-xl bg-white"
+              />
+              <span>
+                <span className="block text-sm font-bold">학생·교직원 배포 QR</span>
+                <span className="mt-1 block max-w-[16rem] text-xs leading-relaxed text-[var(--ink-muted)]">
+                  휴대폰과 컴퓨터가 이 주소로 같은 기록을 공유합니다.
+                </span>
               </span>
-            </span>
-          </a>
+            </a>
+          ) : null}
         </section>
 
-        <section className="flex w-full items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.92)] px-6 py-8 backdrop-blur-md lg:w-[46%] lg:px-10">
+        <section className="flex min-h-screen w-full items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.96)] px-6 py-8 lg:min-h-0 lg:w-[46%] lg:bg-[rgba(250,248,242,0.92)] lg:px-10 lg:backdrop-blur-md">
           <div className="w-full max-w-lg">
+            <div className="mb-6 lg:hidden">
+              <p className="text-xs font-semibold tracking-[0.16em] text-[var(--brand)]">
+                SCHOOL RUN
+              </p>
+              <h1 className="font-display mt-1 text-4xl text-[var(--ink)]">1·2·3 런</h1>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
+                운동장 한 바퀴가 마일리지 1점입니다. 아이디로 입장하세요.
+              </p>
+            </div>
             <div className="mb-8 flex gap-2 rounded-2xl bg-[#E8EFE8] p-1">
               <button
                 type="button"
