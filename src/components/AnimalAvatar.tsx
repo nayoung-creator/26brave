@@ -38,6 +38,8 @@ export function AnimalAvatar({
           width={size}
           height={size}
           draggable={false}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-contain"
         />
         {cloth ? (

@@ -1,16 +1,15 @@
-import { headers } from "next/headers";
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { SiteQr } from "@/components/SiteQr";
 
-export const dynamic = "force-dynamic";
+export default function JoinPage() {
+  const [origin, setOrigin] = useState("");
 
-export default async function JoinPage() {
-  const headerList = await headers();
-  const host =
-    headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "";
-  const proto =
-    headerList.get("x-forwarded-proto") ??
-    (host.includes("localhost") ? "http" : "https");
-  const origin = `${proto}://${host}`;
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-[var(--canvas)] px-6 py-10">
@@ -23,15 +22,17 @@ export default async function JoinPage() {
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--ink-muted)]">
           이 QR이나 주소로 들어온 휴대폰과 컴퓨터는 모두 같은 계정,
-          같은 마일리지, 같은 동물 기록을 사용합니다.
+          같은 마일리지, 같은 동물 기록을 사용합니다. 어느 기기에서
+          저장해도 다른 기기에 이어서 보입니다.
         </p>
-        <img
-          src="/api/qr"
-          alt="학교 런 프로젝트 접속 QR 코드"
-          className="mx-auto mt-6 h-64 w-64 rounded-2xl border border-[var(--line)] bg-white p-2"
-        />
+        <div className="mx-auto mt-6 h-64 w-64">
+          <SiteQr
+            alt="학교 런 프로젝트 접속 QR 코드"
+            className="h-64 w-64 rounded-2xl border border-[var(--line)] bg-white p-2"
+          />
+        </div>
         <p className="mt-4 break-all text-lg font-semibold text-[var(--brand)]">
-          {origin}
+          {origin || "주소를 불러오는 중..."}
         </p>
         <Link href="/" className="btn-primary mt-6 inline-block">
           로그인 화면으로

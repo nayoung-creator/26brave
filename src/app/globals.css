@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  --font-body: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR",
+    sans-serif;
+  --font-display: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR",
+    sans-serif;
   --canvas: #e9f3ea;
   --panel: #fbfaf6;
   --panel-soft: #eef5ef;
@@ -31,11 +35,11 @@ body {
   overflow: auto;
   color: var(--ink);
   background: var(--canvas);
-  font-family: var(--font-body), "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-body);
 }
 
 .font-display {
-  font-family: var(--font-display), "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
 }
 
