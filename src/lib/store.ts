@@ -148,7 +148,7 @@ function emptyDb(): Database {
   return { users: [], sessions: [], laps: [] };
 }
 
-function freshUser(partial: Omit<User, "ownedClothesIds" | "equippedClothesId" | "fullness" | "happiness" | "mealsFed" | "snacksFed"> & Partial<User>): User {
+function freshUser(partial: Omit<User, "ownedClothesIds" | "equippedClothesId" | "fullness" | "happiness" | "mealsFed" | "snacksFed" | "caresGiven"> & Partial<User>): User {
   return {
     ownedClothesIds: [],
     equippedClothesId: null,
@@ -156,6 +156,7 @@ function freshUser(partial: Omit<User, "ownedClothesIds" | "equippedClothesId" |
     happiness: 40,
     mealsFed: 0,
     snacksFed: 0,
+    caresGiven: 0,
     ...partial,
   };
 }
@@ -182,6 +183,7 @@ function normalizeUser(raw: Partial<User> & { animal?: unknown }): User {
     happiness: Math.max(0, Math.min(100, Number(raw.happiness ?? 40))),
     mealsFed: Number(raw.mealsFed ?? 0),
     snacksFed: Number(raw.snacksFed ?? 0),
+    caresGiven: Number(raw.caresGiven ?? 0),
     createdAt: raw.createdAt ?? new Date().toISOString(),
   };
 }

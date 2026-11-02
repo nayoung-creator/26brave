@@ -31,7 +31,7 @@ export default function HomePage() {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[var(--canvas)]">
         <div className="font-display text-3xl text-[var(--brand)] animate-pulse">
-          1·2·3 런 준비 중...
+          MAJON 1·2·3 런 준비 중...
         </div>
       </div>
     );

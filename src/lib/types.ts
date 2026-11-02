@@ -24,7 +24,7 @@ export type AnimalId =
 
 export type EvolutionStage = 1 | 2 | 3;
 
-export type ItemCategory = "clothes" | "food" | "snack";
+export type ItemCategory = "clothes" | "food" | "snack" | "care";
 
 export interface ShopItem {
   id: string;
@@ -64,6 +64,7 @@ export interface User {
   happiness: number;
   mealsFed: number;
   snacksFed: number;
+  caresGiven: number;
   createdAt: string;
 }
 
@@ -98,6 +99,7 @@ export interface PublicUser {
   happiness: number;
   mealsFed: number;
   snacksFed: number;
+  caresGiven: number;
   createdAt: string;
   todayLaps: number;
   monthLaps: number;
