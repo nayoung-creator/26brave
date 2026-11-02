@@ -24,7 +24,7 @@ export type AnimalId =
 
 export type EvolutionStage = 1 | 2 | 3;
 
-export type ItemCategory = "clothes" | "food" | "snack";
+export type ItemCategory = "clothes" | "food" | "snack" | "care";
 
 export interface ShopItem {
   id: string;
@@ -33,6 +33,8 @@ export interface ShopItem {
   price: number;
   blurb: string;
   emoji: string;
+  /** Shared catalog id that is actually charged. Keeps new menu names on the existing records. */
+  settleId?: string;
   colors: {
     primary: string;
     secondary?: string;
