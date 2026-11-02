@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/repair-animal-faces.mjs",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "next lint"
