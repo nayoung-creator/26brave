@@ -3,11 +3,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
 import { PlaygroundTrack } from "./PlaygroundTrack";
-import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
+import { EVOLUTION_STEP, SHOP_CATEGORIES, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
 import type {
   AdminUserView,
   EvolutionStage,
-  ItemCategory,
   LapRecord,
   PublicUser,
   ShopItem,
@@ -31,16 +30,16 @@ const TABS: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: "today", label: "오늘의 기록" },
   { id: "month", label: "이번 달의 기록" },
   { id: "track", label: "참가자 현황" },
-  { id: "character", label: "동물 키우기" },
+  { id: "character", label: "성장 친구" },
   { id: "growth", label: "성장 배지" },
   { id: "profile", label: "내 정보" },
   { id: "admin", label: "계정 관리", adminOnly: true },
 ];
 
-const CATEGORY_LABEL: Record<ItemCategory, string> = {
-  clothes: "옷",
+const CATEGORY_LABEL: Record<(typeof SHOP_CATEGORIES)[number], string> = {
   food: "먹이",
   snack: "간식",
+  care: "돌보기",
 };
 
 export function Dashboard({ user, onUserChange }: Props) {
@@ -52,7 +51,8 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [lapInput, setLapInput] = useState(1);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
-  const [shopCategory, setShopCategory] = useState<ItemCategory>("clothes");
+  const [shopCategory, setShopCategory] = useState<(typeof SHOP_CATEGORIES)[number]>("food");
+  const [mood, setMood] = useState<{ emoji: string; token: number } | null>(null);
   const [revealId, setRevealId] = useState<string | null>(null);
 
   const loadRecords = useCallback(async () => {
@@ -133,10 +133,13 @@ export function Dashboard({ user, onUserChange }: Props) {
       return;
     }
     onUserChange(data.user);
+    setMood({ emoji: item.emoji, token: Date.now() });
     if (item.category === "food") {
       setMessage(`${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`);
     } else if (item.category === "snack") {
       setMessage(`${item.name}을(를) 줬어요. 행복이 올랐습니다.`);
+    } else if (item.category === "care") {
+      setMessage(`${item.name}으로 교감했어요. 행복이 올랐습니다.`);
     } else {
       setMessage(`${item.name}을(를) 사서 입혔어요.`);
     }
@@ -215,6 +218,7 @@ export function Dashboard({ user, onUserChange }: Props) {
       { name: "완전 진화", detail: "누적 100 마일리지", earned: user.mileage >= 100 },
       { name: "밥 잘 주는 친구", detail: "먹이 3회", earned: user.mealsFed >= 3 },
       { name: "간식 요정", detail: "간식 3회", earned: user.snacksFed >= 3 },
+      { name: "다정한 친구", detail: "돌보기 3회", earned: user.caresGiven >= 3 },
     ];
   }, [user]);
 
@@ -222,6 +226,8 @@ export function Dashboard({ user, onUserChange }: Props) {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] md:flex-row">
       <aside className="flex w-full shrink-0 flex-col border-b border-[var(--line)] bg-[var(--panel)] md:h-full md:w-[260px] md:border-b-0 md:border-r">
         <div className="border-b border-[var(--line)] px-6 py-7">
+          <div className="xmas-lights" aria-hidden />
+          <div className="font-display text-sm tracking-[0.22em] text-[var(--accent)]">MAJON</div>
           <div className="font-display text-3xl leading-none text-[var(--brand)]">
             1·2·3 런
           </div>
@@ -435,15 +441,20 @@ export function Dashboard({ user, onUserChange }: Props) {
               <div className="panel flex flex-col overflow-auto">
                 <h3 className="section-title">{user.stageName}</h3>
                 <p className="text-sm text-[var(--ink-muted)]">
-                  지금 키우는 친구 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
+                  달린 만큼 자라고, 먹이고 돌보면 더 행복한 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
                 </p>
-                <div className="my-3 flex justify-center">
+                <div className="relative my-3 flex justify-center">
                   <AnimalAvatar
                     animal={user.animal}
                     stage={user.stage}
                     clothesId={user.equippedClothesId}
                     size={210}
                   />
+                  {mood ? (
+                    <span key={mood.token} className="mood-pop" aria-hidden>
+                      {mood.emoji}
+                    </span>
+                  ) : null}
                 </div>
                 <EvolutionBar mileage={user.mileage} />
                 <div className="mt-4 grid grid-cols-3 gap-2">
@@ -472,13 +483,17 @@ export function Dashboard({ user, onUserChange }: Props) {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <Meter label="포만감" value={user.fullness} hint={`먹이 ${user.mealsFed}회`} />
-                  <Meter label="행복" value={user.happiness} hint={`간식 ${user.snacksFed}회`} />
+                  <Meter
+                    label="행복"
+                    value={user.happiness}
+                    hint={`간식 ${user.snacksFed}회 · 돌봄 ${user.caresGiven}회`}
+                  />
                 </div>
               </div>
 
               <div className="panel overflow-auto">
                 <div className="mb-4 flex flex-wrap gap-2">
-                  {(Object.keys(CATEGORY_LABEL) as ItemCategory[]).map((cat) => (
+                  {SHOP_CATEGORIES.map((cat) => (
                     <button
                       key={cat}
                       type="button"
@@ -531,7 +546,9 @@ export function Dashboard({ user, onUserChange }: Props) {
                               ? "사서 입히기"
                               : item.category === "food"
                                 ? "먹이 주기"
-                                : "간식 주기"}
+                                : item.category === "snack"
+                                  ? "간식 주기"
+                                  : "함께하기"}
                           </button>
                         )}
                       </div>

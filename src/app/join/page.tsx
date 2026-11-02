@@ -16,7 +16,7 @@ export default async function JoinPage() {
     <main className="flex min-h-screen w-full items-center justify-center bg-[var(--canvas)] px-6 py-10">
       <section className="w-full max-w-xl rounded-[28px] bg-white px-8 py-10 text-center shadow-lg">
         <p className="text-sm font-semibold tracking-[0.18em] text-[var(--brand)]">
-          1·2·3 런 배포
+          MAJON 1·2·3 런 배포
         </p>
         <h1 className="font-display mt-3 text-4xl text-[var(--ink)]">
           학생·교직원 접속

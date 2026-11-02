@@ -57,6 +57,7 @@ export async function toPublicUser(user: User): Promise<PublicUser> {
     happiness: user.happiness,
     mealsFed: user.mealsFed,
     snacksFed: user.snacksFed,
+    caresGiven: user.caresGiven ?? 0,
     createdAt: user.createdAt,
     todayLaps,
     monthLaps,

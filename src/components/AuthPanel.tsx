@@ -83,6 +83,7 @@ export function AuthPanel({ onAuthed }: Props) {
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
           </p>
+          <p className="font-display text-2xl tracking-[0.18em] text-[#F8E3A0]">MAJON</p>
           <h1 className="font-display text-6xl leading-[0.95] text-white drop-shadow-sm lg:text-[5.5rem]">
             1·2·3 런
           </h1>

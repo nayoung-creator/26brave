@@ -55,8 +55,8 @@ export async function POST(req: Request) {
     }
 
     if (action === "feed") {
-      if (!item || (item.category !== "food" && item.category !== "snack")) {
-        return jsonError("먹이 또는 간식만 줄 수 있습니다.");
+      if (!item || (item.category !== "food" && item.category !== "snack" && item.category !== "care")) {
+        return jsonError("먹이, 간식, 돌보기만 할 수 있습니다.");
       }
       const { result } = await updateDb((db) => {
         const target = db.users.find((u) => u.id === user.id);
@@ -67,9 +67,12 @@ export async function POST(req: Request) {
         if (item.category === "food") {
           target.fullness = Math.min(100, target.fullness + CARE_GAIN);
           target.mealsFed += 1;
-        } else {
+        } else if (item.category === "snack") {
           target.happiness = Math.min(100, target.happiness + CARE_GAIN);
           target.snacksFed += 1;
+        } else {
+          target.happiness = Math.min(100, target.happiness + CARE_GAIN);
+          target.caresGiven += 1;
         }
         return target;
       });
