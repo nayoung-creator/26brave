@@ -81,11 +81,11 @@ export function AuthPanel({ onAuthed }: Props) {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-auto">
+    <div className="relative min-h-dvh w-full">
       <div className="absolute inset-0 auth-hero" />
       <div className="absolute inset-0 auth-grain" />
 
-      <div className="relative z-10 flex min-h-screen w-full flex-col lg:flex-row">
+      <div className="relative z-10 flex min-h-dvh w-full flex-col lg:flex-row">
         <section className="hidden w-full flex-col justify-end px-8 pb-10 pt-12 lg:flex lg:w-[54%] lg:px-16 lg:pb-20 lg:pt-16">
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
@@ -131,7 +131,7 @@ export function AuthPanel({ onAuthed }: Props) {
           ) : null}
         </section>
 
-        <section className="flex min-h-screen w-full items-center justify-center overflow-y-auto bg-[rgba(250,248,242,0.96)] px-6 py-8 lg:min-h-0 lg:w-[46%] lg:bg-[rgba(250,248,242,0.92)] lg:px-10 lg:backdrop-blur-md">
+        <section className="flex w-full flex-col bg-[rgba(250,248,242,0.96)] px-5 py-6 pb-16 lg:min-h-dvh lg:w-[46%] lg:justify-center lg:bg-[rgba(250,248,242,0.92)] lg:px-10 lg:py-10 lg:backdrop-blur-md">
           <div className="w-full max-w-lg">
             <div className="mb-6 lg:hidden">
               <p className="text-xs font-semibold tracking-[0.16em] text-[var(--brand)]">
