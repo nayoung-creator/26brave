@@ -118,6 +118,7 @@ export function useFigureAnchor(src: string) {
   const [anchor, setAnchor] = useState<FigureAnchor>(() => cache.get(cacheKey) ?? FALLBACK);
 
   useEffect(() => {
+    if (!src) return;
     const saved = cache.get(cacheKey);
     if (saved) {
       setAnchor(saved);

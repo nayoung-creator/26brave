@@ -31,8 +31,10 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100%;
-  height: 100%;
-  overflow: auto;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   color: var(--ink);
   background: var(--canvas);
   font-family: var(--font-body);
@@ -286,6 +288,34 @@ code {
   opacity: 0.75;
   background-size: 160px 190px, 70px 90px;
   animation-duration: 26s;
+}
+
+@media (max-width: 767px) {
+  .snow {
+    animation: none;
+    opacity: 0.45;
+  }
+
+  .snow-slow,
+  .auth-grain {
+    display: none;
+  }
+
+  .auth-hero,
+  .twinkle,
+  .xmas-lights {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow,
+  .snow-slow,
+  .auth-hero,
+  .twinkle,
+  .xmas-lights {
+    animation: none;
+  }
 }
 
 .twinkle {

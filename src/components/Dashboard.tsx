@@ -113,12 +113,27 @@ export function Dashboard({ user, onUserChange }: Props) {
   }, [loadRecords, loadParticipants]);
 
   useEffect(() => {
+    let scrolling = false;
+    let scrollTimer = 0;
+    const onScroll = () => {
+      scrolling = true;
+      window.clearTimeout(scrollTimer);
+      scrollTimer = window.setTimeout(() => {
+        scrolling = false;
+      }, 500);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
     const timer = window.setInterval(() => {
+      if (scrolling || document.hidden) return;
       void loadRecords();
       void loadParticipants();
       if (user.role === "admin") void loadAdmin();
     }, 8000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(scrollTimer);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [loadRecords, loadParticipants, loadAdmin, user.role]);
 
   useEffect(() => {
@@ -269,20 +284,27 @@ export function Dashboard({ user, onUserChange }: Props) {
   }, [user]);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col border-b border-[var(--line)] bg-[var(--panel)] md:h-full md:w-[260px] md:border-b-0 md:border-r">
-        <div className="border-b border-[var(--line)] px-6 py-7">
+    <div className="flex min-h-dvh w-full flex-col bg-[var(--canvas)] md:h-dvh md:flex-row md:overflow-hidden">
+      <aside className="sticky top-0 z-20 flex w-full shrink-0 flex-col border-b border-[var(--line)] bg-[var(--panel)] md:static md:h-full md:w-[260px] md:border-b-0 md:border-r">
+        <div className="border-b border-[var(--line)] px-4 py-3 md:px-6 md:py-7">
           <div className="xmas-lights" aria-hidden />
-          <div className="font-display text-sm tracking-[0.22em] text-[var(--accent)]">MAJON</div>
-          <div className="font-display text-3xl leading-none text-[var(--brand)]">
-            1·2·3 런
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-display text-sm tracking-[0.22em] text-[var(--accent)]">MAJON</div>
+              <div className="font-display text-2xl leading-none text-[var(--brand)] md:text-3xl">
+                1·2·3 런
+              </div>
+            </div>
+            <button type="button" className="btn-ghost px-3 py-2 md:hidden" onClick={logout}>
+              로그아웃
+            </button>
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-[var(--ink-muted)]">
+          <p className="mt-2 hidden text-xs leading-relaxed text-[var(--ink-muted)] md:block">
             다른 휴대폰·컴퓨터의 기록도 이 화면에 모입니다.
           </p>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto p-3 md:flex-1 md:flex-col">
+        <nav className="flex gap-1 overflow-x-auto p-2 md:flex-1 md:flex-col md:p-3">
           {visibleTabs.map((t) => (
             <button
               key={t.id}
@@ -302,7 +324,7 @@ export function Dashboard({ user, onUserChange }: Props) {
           ))}
         </nav>
 
-        <div className="border-t border-[var(--line)] p-4">
+        <div className="hidden border-t border-[var(--line)] p-4 md:block">
           <div className="mb-3 flex items-center gap-3">
             <AnimalAvatar
               animal={user.animal}
@@ -326,10 +348,10 @@ export function Dashboard({ user, onUserChange }: Props) {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-[var(--line)] bg-white/70 px-8 py-5 backdrop-blur">
+      <main className="flex min-w-0 flex-1 flex-col md:min-h-0 md:overflow-hidden">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] bg-white/90 px-4 py-4 md:bg-white/70 md:px-8 md:py-5 md:backdrop-blur">
           <div>
-            <h2 className="font-display text-3xl text-[var(--ink)]">
+            <h2 className="font-display text-2xl text-[var(--ink)] md:text-3xl">
               {visibleTabs.find((t) => t.id === tab)?.label}
             </h2>
             <p className="text-sm text-[var(--ink-muted)]">
@@ -346,7 +368,7 @@ export function Dashboard({ user, onUserChange }: Props) {
           </div>
         </header>
 
-        <div className="relative flex-1 overflow-auto p-8">
+        <div className="relative min-w-0 px-4 py-4 md:min-h-0 md:flex-1 md:overflow-auto md:p-8">
           {message ? (
             <div className="mb-4 rounded-xl bg-[#E7F6EE] px-4 py-3 text-sm text-[#1F6B4A]">
               {message}
@@ -354,7 +376,7 @@ export function Dashboard({ user, onUserChange }: Props) {
           ) : null}
 
           {tab === "today" && (
-            <section className="grid h-full grid-cols-[1.1fr_0.9fr] gap-6">
+            <section className="grid grid-cols-1 gap-4 md:h-full md:grid-cols-[1.1fr_0.9fr] md:gap-6">
               <div className="panel flex flex-col">
                 <h3 className="section-title">오늘 바퀴 기록하기</h3>
                 <p className="mb-6 text-sm text-[var(--ink-muted)]">
@@ -404,7 +426,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   </button>
                 </form>
               </div>
-              <div className="panel overflow-auto">
+              <div className="panel md:overflow-auto">
                 <h3 className="section-title">오늘의 내 기록</h3>
                 {lapsToday.length === 0 ? (
                   <Empty text="아직 오늘 기록이 없습니다." />
@@ -431,8 +453,8 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "month" && (
-            <section className="panel h-full overflow-auto">
-              <div className="mb-6 flex items-end justify-between">
+            <section className="panel md:h-full md:overflow-auto">
+              <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h3 className="section-title">이번 달 달리기 기록</h3>
                   <p className="text-sm text-[var(--ink-muted)]">
@@ -465,11 +487,11 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "track" && (
-            <section className="flex h-full flex-col gap-4">
-              <div className="min-h-0 flex-1">
+            <section className="flex flex-col gap-4 md:h-full">
+              <div className="h-[min(78vw,520px)] min-h-[280px] md:h-auto md:min-h-[420px] md:flex-1">
                 <PlaygroundTrack users={participants} />
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {participants.slice(0, 8).map((p) => (
                   <div key={p.id} className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
                     <div className="truncate text-sm font-bold">{p.displayName}</div>
@@ -483,8 +505,8 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "character" && (
-            <section className="grid h-full grid-cols-[0.95fr_1.05fr] gap-6">
-              <div className="panel flex flex-col overflow-auto">
+            <section className="grid grid-cols-1 gap-4 md:h-full md:grid-cols-[0.95fr_1.05fr] md:gap-6">
+              <div className="panel flex flex-col md:overflow-auto">
                 <h3 className="section-title">{user.stageName}</h3>
                 <p className="text-sm text-[var(--ink-muted)]">
                   달린 만큼 자라고, 먹이고 돌보면 더 행복한 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
@@ -541,7 +563,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                 </div>
               </div>
 
-              <div className="panel overflow-auto">
+              <div className="panel md:overflow-auto">
                 <div className="mb-4 flex flex-wrap gap-2">
                   {SHOP_CATEGORIES.map((cat) => (
                     <button
@@ -558,7 +580,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {shopItems.map((item) => {
                     const owned = user.ownedClothesIds.includes(item.id);
                     const equipped = user.equippedClothesId === item.id;
@@ -616,12 +638,12 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "growth" && (
-            <section className="panel h-full overflow-auto">
+            <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">성장 배지</h3>
               <p className="mb-6 text-sm text-[var(--ink-muted)]">
                 순위가 아니라 참여와 지속을 응원하는 배지입니다.
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
                 {badges.map((badge) => (
                   <div
                     key={badge.name}
@@ -645,7 +667,7 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "profile" && (
-            <section className="grid h-full grid-cols-2 gap-6">
+            <section className="grid grid-cols-1 gap-4 md:h-full md:grid-cols-2 md:gap-6">
               <div className="panel">
                 <h3 className="section-title">내 계정</h3>
                 <dl className="mt-4 space-y-3 text-sm">
@@ -684,12 +706,12 @@ export function Dashboard({ user, onUserChange }: Props) {
           )}
 
           {tab === "admin" && user.role === "admin" && (
-            <section className="panel h-full overflow-auto">
+            <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
                 계정의 마일리지와 비밀번호를 확인하고, 다른 계정을 삭제할 수 있습니다.
               </p>
-              <div className="overflow-hidden rounded-2xl border border-[var(--line)]">
+              <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[var(--panel-soft)] text-[var(--ink-muted)]">
                     <tr>

@@ -43,7 +43,7 @@ export function AnimalAvatar({
   const pet = getAnimal(animal);
   const stageLabel = pet.stages[stage - 1];
   const src = `/animals/${animal}-${stage}.png`;
-  const anchor = useFigureAnchor(src);
+  const anchor = useFigureAnchor(clothesId ? src : "");
   const cloth = clothesId ? SHOP_ITEMS.find((item) => item.id === clothesId) : null;
   const mouthY = Math.min(anchor.eyeY + 7, 70);
 
