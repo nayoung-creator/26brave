@@ -1,18 +1,99 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
+import { readToken } from "@/lib/cloud";
+import { placeRunners, runnerPoint, type TrackSlot } from "@/lib/trackLayout";
 import type { PublicUser } from "@/lib/types";
 
 interface Props {
   users: PublicUser[];
 }
 
-/** Place participants around an oval track based on total laps. */
+const LAP_MS = 90_000;
+
+function currentMotion() {
+  if (typeof window === "undefined") return 0;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  return (Date.now() % LAP_MS) / LAP_MS;
+}
+
+function loginNudge() {
+  if (typeof window === "undefined") return 0;
+  const token = readToken() ?? "guest";
+  const key = `run_track_nudge:${token}`;
+  const saved = window.localStorage.getItem(key);
+  if (saved) return Number(saved) || 0;
+  const nudge = 0.08 + Math.random() * 0.12;
+  for (const old of Object.keys(window.localStorage)) {
+    if (old.startsWith("run_track_nudge:") && old !== key) {
+      window.localStorage.removeItem(old);
+    }
+  }
+  window.localStorage.setItem(key, String(nudge));
+  return nudge;
+}
+
+/** Place participants around the oval without stacking, and let them keep moving. */
 export function PlaygroundTrack({ users }: Props) {
-  const runners = users.slice(0, 40);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const slotsRef = useRef<TrackSlot[]>([]);
+  const [slots, setSlots] = useState<TrackSlot[]>([]);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const nudge = loginNudge();
+    const measure = () => {
+      const rect = frame.getBoundingClientRect();
+      const next = placeRunners(users, rect.width, rect.height, nudge);
+      slotsRef.current = next;
+      setSlots(next);
+      setBox({ width: rect.width, height: rect.height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [users]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const paint = () => {
+      const rect = frame.getBoundingClientRect();
+      const motion = reduced ? 0 : (Date.now() % LAP_MS) / LAP_MS;
+      const nodes = frame.querySelectorAll<HTMLElement>("[data-runner]");
+      nodes.forEach((node) => {
+        const slot = slotsRef.current.find((item) => item.id === node.dataset.runner);
+        if (!slot) return;
+        const point = runnerPoint(slot, rect.width, rect.height, motion);
+        node.style.left = `${point.x}px`;
+        node.style.top = `${point.y}px`;
+        node.style.zIndex = String(20 + Math.round(point.y));
+      });
+      if (!reduced && !document.hidden) raf = window.requestAnimationFrame(paint);
+    };
+    paint();
+    const onHide = () => {
+      window.cancelAnimationFrame(raf);
+      if (!document.hidden && !reduced) raf = window.requestAnimationFrame(paint);
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [slots]);
+
+  const size = slots[0]?.size ?? 64;
+  const motion = currentMotion();
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[28px]">
+    <div ref={frameRef} className="relative h-full w-full overflow-hidden rounded-[28px]">
       <div className="absolute inset-0 track-sky" />
       <div className="absolute inset-x-0 bottom-0 h-2/5 field-wash" />
 
@@ -103,44 +184,51 @@ export function PlaygroundTrack({ users }: Props) {
         </text>
       </svg>
 
-      {runners.length === 0 ? (
+      {users.length === 0 ? (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="rounded-full bg-white/80 px-5 py-2 text-sm text-[var(--ink-muted)] shadow-sm">
             아직 참가자가 없습니다. 가입하고 운동장을 달려 보세요!
           </p>
         </div>
       ) : (
-        runners.map((user, index) => {
-          const progress = (user.totalLaps % 8) / 8 + index * 0.07;
-          const angle = progress * Math.PI * 2 - Math.PI / 2;
-          const rx = 36;
-          const ry = 31;
-          const left = 50 + Math.cos(angle) * rx;
-          const top = 52 + Math.sin(angle) * ry;
-
+        slots.map((slot) => {
+          const user = users.find((item) => item.id === slot.id);
+          if (!user) return null;
+          const point =
+            box.width > 0 ? runnerPoint(slot, box.width, box.height, motion) : null;
           return (
             <div
               key={user.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700"
-              style={{
-                left: `${left}%`,
-                top: `${top}%`,
-                zIndex: 10 + index,
-                animation: `bob ${2.4 + (index % 5) * 0.2}s ease-in-out infinite`,
-                animationDelay: `${index * 0.12}s`,
-              }}
+              data-runner={user.id}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={
+                point
+                  ? {
+                      left: `${point.x}px`,
+                      top: `${point.y}px`,
+                      zIndex: 20 + Math.round(point.y),
+                    }
+                  : undefined
+              }
               title={`${user.displayName} · ${user.totalLaps}바퀴`}
             >
-              <div className="flex flex-col items-center">
+              <div
+                className="flex flex-col items-center"
+                style={{ animation: `bob ${2.6 + (user.totalLaps % 4) * 0.15}s ease-in-out infinite` }}
+              >
                 <AnimalAvatar
                   animal={user.animal}
                   stage={user.stage}
                   clothesId={user.equippedClothesId}
-                  size={64}
+                  size={size}
                 />
-                <span className="mt-[-4px] rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-[var(--ink)] shadow-sm">
-                  {user.displayName}
-                </span>
+                {slot.showName ? (
+                  <span
+                    className="mt-[-4px] max-w-[4.5rem] truncate rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-[var(--ink)] shadow-sm"
+                  >
+                    {user.displayName}
+                  </span>
+                ) : null}
               </div>
             </div>
           );

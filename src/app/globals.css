@@ -125,10 +125,10 @@ body {
 @keyframes bob {
   0%,
   100% {
-    transform: translate(-50%, -50%) translateY(0);
+    transform: translateY(0);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(-6px);
+    transform: translateY(-5px);
   }
 }
 
