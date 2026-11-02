@@ -90,6 +90,7 @@ export function AuthPanel({ onAuthed }: Props) {
           <p className="mb-4 text-sm font-semibold tracking-[0.2em] text-[#F4F0E1]">
             SCHOOL RUN · 비경쟁 성장형 슬로깅
           </p>
+          <p className="font-display text-2xl tracking-[0.18em] text-[#F8E3A0]">MAJON</p>
           <h1 className="font-display text-6xl leading-[0.95] text-white drop-shadow-sm lg:text-[5.5rem]">
             1·2·3 런
           </h1>
@@ -136,7 +137,8 @@ export function AuthPanel({ onAuthed }: Props) {
               <p className="text-xs font-semibold tracking-[0.16em] text-[var(--brand)]">
                 SCHOOL RUN
               </p>
-              <h1 className="font-display mt-1 text-4xl text-[var(--ink)]">1·2·3 런</h1>
+              <p className="font-display mt-2 text-sm tracking-[0.18em] text-[var(--accent)]">MAJON</p>
+              <h1 className="font-display text-4xl text-[var(--ink)]">1·2·3 런</h1>
               <p className="mt-2 text-sm leading-relaxed text-[var(--ink-muted)]">
                 운동장 한 바퀴가 마일리지 1점입니다. 아이디로 입장하세요.
               </p>

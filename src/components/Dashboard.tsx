@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
 import { PlaygroundTrack } from "./PlaygroundTrack";
-import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, stageName } from "@/lib/catalog";
+import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, getItem, stageName } from "@/lib/catalog";
 import {
   adminUsers as fetchAdminUsers,
   cloud,
@@ -13,7 +13,6 @@ import {
 import type {
   AdminUserView,
   EvolutionStage,
-  ItemCategory,
   LapRecord,
   PublicUser,
   ShopItem,
@@ -37,16 +36,18 @@ const TABS: { id: TabId; label: string; adminOnly?: boolean }[] = [
   { id: "today", label: "오늘의 기록" },
   { id: "month", label: "이번 달의 기록" },
   { id: "track", label: "참가자 현황" },
-  { id: "character", label: "동물 키우기" },
+  { id: "character", label: "성장 친구" },
   { id: "growth", label: "성장 배지" },
   { id: "profile", label: "내 정보" },
   { id: "admin", label: "계정 관리", adminOnly: true },
 ];
 
-const CATEGORY_LABEL: Record<ItemCategory, string> = {
-  clothes: "옷",
+const SHOP_CATEGORIES = ["food", "snack", "care"] as const;
+
+const CATEGORY_LABEL: Record<(typeof SHOP_CATEGORIES)[number], string> = {
   food: "먹이",
   snack: "간식",
+  care: "돌보기",
 };
 
 export function Dashboard({ user, onUserChange }: Props) {
@@ -58,7 +59,7 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [lapInput, setLapInput] = useState(1);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
-  const [shopCategory, setShopCategory] = useState<ItemCategory>("clothes");
+  const [shopCategory, setShopCategory] = useState<(typeof SHOP_CATEGORIES)[number]>("food");
   const [revealId, setRevealId] = useState<string | null>(null);
   const [treat, setTreat] = useState<{ emoji: string; token: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -147,8 +148,9 @@ export function Dashboard({ user, onUserChange }: Props) {
     setMessage("");
     setPendingId(item.id);
     const before = { fullness: user.fullness, happiness: user.happiness };
-    const action = item.category === "clothes" ? "buy" : "feed";
-    const res = await cloud(action, { itemId: item.id });
+    const settled = item.settleId ? (getItem(item.settleId) ?? item) : item;
+    const action = settled.category === "clothes" ? "buy" : "feed";
+    const res = await cloud(action, { itemId: settled.id });
     if (!alive.current) return;
     if (!res.ok || !res.data.user) {
       setPendingId(null);
@@ -175,7 +177,9 @@ export function Dashboard({ user, onUserChange }: Props) {
       setMessage(
         item.category === "food"
           ? `${item.name}을(를) 먹였어요. 포만감이 올랐습니다.`
-          : `${item.name}을(를) 줬어요. 행복지수가 올랐습니다.`,
+          : item.category === "care"
+            ? `${item.name}으로 교감했어요. 행복이 올랐습니다.`
+            : `${item.name}을(를) 줬어요. 행복이 올랐습니다.`,
       );
     }, 1400);
     window.setTimeout(() => {
@@ -260,6 +264,7 @@ export function Dashboard({ user, onUserChange }: Props) {
       { name: "완전 진화", detail: "누적 100 마일리지", earned: user.mileage >= 100 },
       { name: "밥 잘 주는 친구", detail: "먹이 3회", earned: user.mealsFed >= 3 },
       { name: "간식 요정", detail: "간식 3회", earned: user.snacksFed >= 3 },
+      { name: "다정한 친구", detail: "간식·돌봄 6회", earned: user.snacksFed >= 6 },
     ];
   }, [user]);
 
@@ -267,6 +272,8 @@ export function Dashboard({ user, onUserChange }: Props) {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] md:flex-row">
       <aside className="flex w-full shrink-0 flex-col border-b border-[var(--line)] bg-[var(--panel)] md:h-full md:w-[260px] md:border-b-0 md:border-r">
         <div className="border-b border-[var(--line)] px-6 py-7">
+          <div className="xmas-lights" aria-hidden />
+          <div className="font-display text-sm tracking-[0.22em] text-[var(--accent)]">MAJON</div>
           <div className="font-display text-3xl leading-none text-[var(--brand)]">
             1·2·3 런
           </div>
@@ -480,7 +487,7 @@ export function Dashboard({ user, onUserChange }: Props) {
               <div className="panel flex flex-col overflow-auto">
                 <h3 className="section-title">{user.stageName}</h3>
                 <p className="text-sm text-[var(--ink-muted)]">
-                  지금 키우는 친구 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
+                  달린 만큼 자라고, 먹이고 돌보면 더 행복한 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
                 </p>
                 <div className="my-3 flex justify-center py-2">
                   <AnimalAvatar
@@ -527,7 +534,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   <Meter
                     label="행복지수"
                     value={user.happiness}
-                    hint={`간식 ${user.snacksFed}회`}
+                    hint={`간식·돌봄 ${user.snacksFed}회`}
                     gain={pops && pops.happiness > 0 ? pops.happiness : 0}
                     gainKey={pops?.token ?? 0}
                   />
@@ -536,7 +543,7 @@ export function Dashboard({ user, onUserChange }: Props) {
 
               <div className="panel overflow-auto">
                 <div className="mb-4 flex flex-wrap gap-2">
-                  {(Object.keys(CATEGORY_LABEL) as ItemCategory[]).map((cat) => (
+                  {SHOP_CATEGORIES.map((cat) => (
                     <button
                       key={cat}
                       type="button"
@@ -595,7 +602,9 @@ export function Dashboard({ user, onUserChange }: Props) {
                                 ? "사서 입히기"
                                 : item.category === "food"
                                   ? "먹이 주기"
-                                  : "간식 주기"}
+                                  : item.category === "snack"
+                                    ? "간식 주기"
+                                    : "함께하기"}
                           </button>
                         )}
                       </div>

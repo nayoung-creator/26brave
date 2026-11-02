@@ -7,16 +7,16 @@
     sans-serif;
   --font-display: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", "Noto Sans CJK KR",
     sans-serif;
-  --canvas: #e9f3ea;
-  --panel: #fbfaf6;
-  --panel-soft: #eef5ef;
-  --brand: #1f6b4a;
-  --accent: #d96b2b;
-  --ink: #1c2b22;
-  --ink-muted: #5d6f64;
-  --line: #d5e2d7;
-  --sky-top: #7ec8e3;
-  --sky-mid: #a8dcc0;
+  --canvas: #f6f1e8;
+  --panel: #fffdf8;
+  --panel-soft: #f7efe4;
+  --brand: #1b6b45;
+  --accent: #c4373a;
+  --ink: #2c241c;
+  --ink-muted: #6e5c50;
+  --line: #eadfce;
+  --sky-top: #d7ecf6;
+  --sky-mid: #f7f3ea;
   --field: #3fa66a;
   --track: #c75b39;
 }
@@ -45,9 +45,10 @@ body {
 
 .auth-hero {
   background:
-    radial-gradient(circle at 18% 22%, rgba(255, 236, 170, 0.55), transparent 28%),
-    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.25), transparent 24%),
-    linear-gradient(165deg, #5fb4d6 0%, #7ec8a8 42%, #3f9d63 78%, #2f7f4d 100%);
+    radial-gradient(circle at 18% 18%, rgba(255, 220, 120, 0.45), transparent 22%),
+    radial-gradient(circle at 78% 12%, rgba(255, 255, 255, 0.35), transparent 18%),
+    radial-gradient(circle at 50% 100%, rgba(196, 55, 58, 0.28), transparent 32%),
+    linear-gradient(165deg, #16324a 0%, #1f6b4a 48%, #8d2e32 100%);
   animation: sky-shift 14s ease-in-out infinite alternate;
 }
 
@@ -59,8 +60,8 @@ body {
 
 .track-sky {
   background:
-    radial-gradient(circle at 70% 12%, rgba(255, 236, 170, 0.55), transparent 22%),
-    linear-gradient(180deg, #8fd0e8 0%, #b7e2c8 55%, #8fd0a8 100%);
+    radial-gradient(circle at 78% 8%, rgba(255, 244, 214, 0.85), transparent 18%),
+    linear-gradient(180deg, #d7eefe 0%, #f7f1e4 42%, #c9ead4 100%);
 }
 
 .field-wash {
@@ -266,4 +267,56 @@ body {
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.snow,
+.snow-slow {
+  pointer-events: none;
+  position: fixed;
+  inset: -10% 0 0;
+  z-index: 30;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.95) 1.2px, transparent 1.5px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.8) 1.6px, transparent 1.9px);
+  background-size: 90px 110px, 140px 160px;
+  animation: snow-fall 16s linear infinite;
+}
+
+.snow-slow {
+  opacity: 0.75;
+  background-size: 160px 190px, 70px 90px;
+  animation-duration: 26s;
+}
+
+.twinkle {
+  animation: twinkle 1.4s ease-in-out infinite alternate;
+}
+
+.xmas-lights {
+  height: 10px;
+  margin: -8px -6px 12px;
+  background:
+    radial-gradient(circle at 8px 6px, #e24b4b 3px, transparent 4px),
+    radial-gradient(circle at 28px 6px, #e2b043 3px, transparent 4px),
+    radial-gradient(circle at 48px 6px, #2f9e6b 3px, transparent 4px);
+  background-size: 60px 12px;
+  animation: twinkle 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes snow-fall {
+  from {
+    background-position: 0 -40px, 20px -20px;
+  }
+  to {
+    background-position: 40px 640px, -30px 720px;
+  }
+}
+
+@keyframes twinkle {
+  from {
+    filter: brightness(0.75);
+  }
+  to {
+    filter: brightness(1.25);
+  }
 }
