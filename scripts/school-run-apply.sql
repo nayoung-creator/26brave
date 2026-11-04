@@ -512,7 +512,7 @@ BEGIN
   END IF;
 
   IF actor->>'role' <> 'admin' THEN
-    IF action IN ('adminUsers', 'adminPassword', 'adminDelete') THEN
+    IF action IN ('adminUsers', 'adminPassword', 'adminDelete', 'adminProfile') THEN
       RETURN school_run_err('관리자만 접근할 수 있습니다.', 403);
     END IF;
     RETURN school_run_err('알 수 없는 요청입니다.', 400);
@@ -562,6 +562,42 @@ BEGIN
       RETURN school_run_err('사용자를 찾을 수 없습니다.', 404);
     END IF;
     updated := jsonb_set(target, '{passwordPlain}', to_jsonb(new_pw));
+    state := school_run_put_user(state, updated);
+    UPDATE school_run_state SET doc = state WHERE id = 1;
+    SELECT * INTO target_counts FROM school_run_counts(state, updated->>'id');
+    RETURN jsonb_build_object(
+      'ok', true,
+      'user', school_run_shape(updated, true, target_counts.today_laps, target_counts.month_laps, target_counts.total_laps)
+    );
+  END IF;
+
+  IF action = 'adminProfile' THEN
+    target_id := btrim(COALESCE(payload->>'userId', ''));
+    uname := btrim(COALESCE(payload->>'username', ''));
+    grade := COALESCE(payload->>'grade', '');
+    IF char_length(uname) < 2 OR char_length(uname) > 40 THEN
+      RETURN school_run_err('아이디는 2자 이상이어야 합니다.', 400);
+    END IF;
+    IF NOT (grade = ANY (grades)) THEN
+      RETURN school_run_err('학년을 선택해 주세요.', 400);
+    END IF;
+    SELECT u INTO target
+    FROM jsonb_array_elements(COALESCE(state->'users', '[]'::jsonb)) AS u
+    WHERE u->>'id' = target_id
+    LIMIT 1;
+    IF target IS NULL THEN
+      RETURN school_run_err('사용자를 찾을 수 없습니다.', 404);
+    END IF;
+    IF EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(COALESCE(state->'users', '[]'::jsonb)) AS u
+      WHERE u->>'username' = uname
+        AND u->>'id' IS DISTINCT FROM target_id
+    ) THEN
+      RETURN school_run_err('이미 사용 중인 아이디입니다.', 409);
+    END IF;
+    updated := jsonb_set(target, '{username}', to_jsonb(uname));
+    updated := jsonb_set(updated, '{grade}', to_jsonb(grade));
     state := school_run_put_user(state, updated);
     UPDATE school_run_state SET doc = state WHERE id = 1;
     SELECT * INTO target_counts FROM school_run_counts(state, updated->>'id');

@@ -10,12 +10,14 @@ import {
   logout as cloudLogout,
   participants as fetchParticipants,
 } from "@/lib/cloud";
-import type {
-  AdminUserView,
-  EvolutionStage,
-  LapRecord,
-  PublicUser,
-  ShopItem,
+import {
+  GRADES,
+  type AdminUserView,
+  type EvolutionStage,
+  type Grade,
+  type LapRecord,
+  type PublicUser,
+  type ShopItem,
 } from "@/lib/types";
 
 type TabId =
@@ -61,6 +63,10 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [message, setMessage] = useState("");
   const [shopCategory, setShopCategory] = useState<(typeof SHOP_CATEGORIES)[number]>("food");
   const [revealId, setRevealId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftUsername, setDraftUsername] = useState("");
+  const [draftGrade, setDraftGrade] = useState<Grade>("1학년");
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [treat, setTreat] = useState<{ emoji: string; token: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pops, setPops] = useState<{
@@ -227,6 +233,47 @@ export function Dashboard({ user, onUserChange }: Props) {
     }
     setMessage("비밀번호가 변경되었습니다.");
     e.currentTarget.reset();
+  }
+
+  function startEdit(account: AdminUserView) {
+    setEditingId(account.id);
+    setDraftUsername(account.username);
+    setDraftGrade(account.grade);
+    setMessage("");
+  }
+
+  async function saveProfile(account: AdminUserView) {
+    const username = draftUsername.trim();
+    if (username.length < 2) {
+      setMessage("아이디는 2자 이상이어야 합니다.");
+      return;
+    }
+    setSavingId(account.id);
+    setMessage("");
+    const res = await cloud("adminProfile", {
+      userId: account.id,
+      username,
+      grade: draftGrade,
+    });
+    setSavingId(null);
+    if (!res.ok || !res.data.user) {
+      const err = res.data.error ?? "수정 실패";
+      setMessage(
+        err === "알 수 없는 요청입니다."
+          ? "아이디와 학년을 저장하지 못했습니다. 공유 저장소에 계정 수정 기능이 아직 없습니다."
+          : err,
+      );
+      return;
+    }
+    if (res.data.user.id === user.id) {
+      const saved = res.data.user as AdminUserView;
+      const { passwordPlain, ...pub } = saved;
+      void passwordPlain;
+      onUserChange(pub);
+    }
+    setMessage(`${res.data.user.displayName} 계정을 수정했습니다.`);
+    setEditingId(null);
+    await loadAdmin();
   }
 
   async function resetPassword(userId: string) {
@@ -709,7 +756,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                계정의 마일리지와 비밀번호를 확인하고, 다른 계정을 삭제할 수 있습니다.
+                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 아이디와 학년을 고치고, 다른 계정을 삭제할 수 있습니다.
               </p>
               <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -734,8 +781,38 @@ export function Dashboard({ user, onUserChange }: Props) {
                             <span className="ml-2 text-xs text-[var(--accent)]">관리자</span>
                           ) : null}
                         </td>
-                        <td className="px-4 py-3">{u.username}</td>
-                        <td className="px-4 py-3">{u.grade}</td>
+                        <td className="px-4 py-3">
+                          {editingId === u.id ? (
+                            <input
+                              className="field w-32 px-2 py-1.5"
+                              value={draftUsername}
+                              maxLength={40}
+                              autoComplete="off"
+                              aria-label={`${u.displayName} 아이디`}
+                              onChange={(event) => setDraftUsername(event.target.value)}
+                            />
+                          ) : (
+                            u.username
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {editingId === u.id ? (
+                            <select
+                              className="field w-28 px-2 py-1.5"
+                              value={draftGrade}
+                              aria-label={`${u.displayName} 학년`}
+                              onChange={(event) => setDraftGrade(event.target.value as Grade)}
+                            >
+                              {GRADES.map((grade) => (
+                                <option key={grade} value={grade}>
+                                  {grade}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            u.grade
+                          )}
+                        </td>
                         <td className="px-4 py-3">{u.stageName}</td>
                         <td className="px-4 py-3">{u.totalLaps}</td>
                         <td className="px-4 py-3">
@@ -762,6 +839,33 @@ export function Dashboard({ user, onUserChange }: Props) {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
+                            {editingId === u.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-primary px-3 py-1.5 text-xs"
+                                  disabled={savingId === u.id}
+                                  onClick={() => saveProfile(u)}
+                                >
+                                  {savingId === u.id ? "저장 중" : "저장"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-ghost px-3 py-1.5 text-xs"
+                                  onClick={() => setEditingId(null)}
+                                >
+                                  취소
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn-ghost px-3 py-1.5 text-xs"
+                                onClick={() => startEdit(u)}
+                              >
+                                수정
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="btn-ghost px-3 py-1.5 text-xs"

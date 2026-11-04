@@ -5,18 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
 import { login, register } from "@/lib/cloud";
 import { ANIMALS } from "@/lib/catalog";
-import type { AnimalId, Grade, PublicUser } from "@/lib/types";
-
-const GRADES: Grade[] = [
-  "유치원",
-  "1학년",
-  "2학년",
-  "3학년",
-  "4학년",
-  "5학년",
-  "6학년",
-  "교직원",
-];
+import { GRADES, type AnimalId, type PublicUser } from "@/lib/types";
 
 const SiteQr = dynamic(
   () => import("./SiteQr").then((mod) => mod.SiteQr),
