@@ -1,4 +1,4 @@
-import type { AdminUserView, LapRecord, PublicUser } from "./types";
+import { GRADES, type AdminUserView, type LapRecord, type PublicUser } from "./types";
 
 const SESSION_KEY = "run_session";
 
@@ -116,9 +116,17 @@ export async function participants() {
 export async function adminUsers() {
   const result = await cloud("adminUsers");
   if (result.ok && result.data.users) {
-    result.data.users = [...result.data.users].sort((a, b) =>
-      a.displayName.localeCompare(b.displayName, "ko"),
-    );
+    result.data.users = [...result.data.users].sort(compareAccounts);
   }
   return result;
+}
+
+function compareAccounts(a: PublicUser, b: PublicUser) {
+  const gradeA = GRADES.indexOf(a.grade);
+  const gradeB = GRADES.indexOf(b.grade);
+  const byGrade = (gradeA < 0 ? GRADES.length : gradeA) - (gradeB < 0 ? GRADES.length : gradeB);
+  if (byGrade) return byGrade;
+  const byName = a.displayName.localeCompare(b.displayName, "ko");
+  if (byName) return byName;
+  return a.username.localeCompare(b.username, "ko");
 }

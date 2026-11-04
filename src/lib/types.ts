@@ -10,6 +10,17 @@ export type Grade =
   | "6학년"
   | "교직원";
 
+export const GRADES: Grade[] = [
+  "유치원",
+  "1학년",
+  "2학년",
+  "3학년",
+  "4학년",
+  "5학년",
+  "6학년",
+  "교직원",
+];
+
 export type AnimalId =
   | "dog"
   | "cat"
