@@ -413,6 +413,8 @@ export function Dashboard({ user, onUserChange }: Props) {
                     name={badge.name}
                     earned
                     size="header"
+                    animal={user.animal}
+                    animalStage={badge.animalStage}
                   />
                 ))}
               </div>
@@ -697,7 +699,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">성장 배지</h3>
               <p className="mb-6 text-sm text-[var(--ink-muted)]">
-                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다.
+                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다. 달리기와 진화 배지는 내가 고른 성장 친구로 나타납니다.
               </p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {badges.map((badge) => (
@@ -714,6 +716,8 @@ export function Dashboard({ user, onUserChange }: Props) {
                       name={badge.name}
                       earned={badge.earned}
                       size="card"
+                      animal={user.animal}
+                      animalStage={badge.animalStage}
                     />
                     <div className="mt-3 font-display text-base leading-tight md:text-xl">{badge.name}</div>
                     <div className="mt-1 text-sm text-[var(--ink-muted)]">
