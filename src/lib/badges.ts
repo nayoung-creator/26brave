@@ -1,10 +1,12 @@
-import type { PublicUser } from "./types";
+import type { EvolutionStage, PublicUser } from "./types";
 
 export interface GrowthBadge {
   id: string;
   name: string;
   detail: string;
   image: string;
+  /** When set, the badge shows this stage of the signed-in account's animal. */
+  animalStage?: EvolutionStage;
   isEarned: (user: PublicUser) => boolean;
 }
 
@@ -28,6 +30,7 @@ export const GROWTH_BADGES: GrowthBadge[] = [
     name: "꾸준한 러너",
     detail: "누적 30바퀴",
     image: "/badges/badge-runner.jpg",
+    animalStage: 1,
     isEarned: (user) => user.totalLaps >= 30,
   },
   {
@@ -35,6 +38,7 @@ export const GROWTH_BADGES: GrowthBadge[] = [
     name: "첫 진화",
     detail: "누적 50 마일리지",
     image: "/badges/badge-first-evolve.jpg",
+    animalStage: 2,
     isEarned: (user) => user.mileage >= 50,
   },
   {
@@ -42,6 +46,7 @@ export const GROWTH_BADGES: GrowthBadge[] = [
     name: "완전 진화",
     detail: "누적 100 마일리지",
     image: "/badges/badge-full-evolve.jpg",
+    animalStage: 3,
     isEarned: (user) => user.mileage >= 100,
   },
   {
