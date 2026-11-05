@@ -68,6 +68,8 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftUsername, setDraftUsername] = useState("");
   const [draftGrade, setDraftGrade] = useState<Grade>("1학년");
+  const [draftAvailable, setDraftAvailable] = useState("0");
+  const [draftMileage, setDraftMileage] = useState("0");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [treat, setTreat] = useState<{ emoji: string; token: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -241,7 +243,16 @@ export function Dashboard({ user, onUserChange }: Props) {
     setEditingId(account.id);
     setDraftUsername(account.username);
     setDraftGrade(account.grade);
+    setDraftAvailable(String(account.availableMileage));
+    setDraftMileage(String(account.mileage));
     setMessage("");
+  }
+
+  function wholeMileage(value: string) {
+    if (!/^\d+$/.test(value.trim())) return null;
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed > 100000) return null;
+    return parsed;
   }
 
   async function saveProfile(account: AdminUserView) {
@@ -250,19 +261,31 @@ export function Dashboard({ user, onUserChange }: Props) {
       setMessage("아이디는 2자 이상이어야 합니다.");
       return;
     }
+    const availableMileage = wholeMileage(draftAvailable);
+    const mileage = wholeMileage(draftMileage);
+    if (availableMileage === null || mileage === null) {
+      setMessage("마일리지는 0 이상의 정수로, 100000 이하로 입력해 주세요.");
+      return;
+    }
+    if (availableMileage > mileage) {
+      setMessage("보유 마일리지는 누적 마일리지보다 클 수 없습니다.");
+      return;
+    }
     setSavingId(account.id);
     setMessage("");
     const res = await cloud("adminProfile", {
       userId: account.id,
       username,
       grade: draftGrade,
+      mileage,
+      availableMileage,
     });
     setSavingId(null);
     if (!res.ok || !res.data.user) {
       const err = res.data.error ?? "수정 실패";
       setMessage(
         err === "알 수 없는 요청입니다."
-          ? "아이디와 학년을 저장하지 못했습니다. 공유 저장소에 계정 수정 기능이 아직 없습니다."
+          ? "아이디, 학년, 마일리지를 저장하지 못했습니다. 공유 저장소에 계정 수정 기능이 아직 없습니다."
           : err,
       );
       return;
@@ -775,7 +798,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 아이디와 학년을 고치고, 다른 계정을 삭제할 수 있습니다.
+                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 아이디, 학년, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
               </p>
               <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -835,11 +858,38 @@ export function Dashboard({ user, onUserChange }: Props) {
                         <td className="px-4 py-3">{u.stageName}</td>
                         <td className="px-4 py-3">{u.totalLaps}</td>
                         <td className="px-4 py-3">
-                          {u.availableMileage}
-                          <span className="text-xs text-[var(--ink-muted)]">
-                            {" "}
-                            / 누적 {u.mileage}
-                          </span>
+                          {editingId === u.id ? (
+                            <div className="flex flex-col gap-1.5">
+                              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--ink-muted)]">
+                                보유
+                                <input
+                                  className="field w-24 px-2 py-1"
+                                  inputMode="numeric"
+                                  value={draftAvailable}
+                                  aria-label={`${u.displayName} 보유 마일리지`}
+                                  onChange={(event) => setDraftAvailable(event.target.value)}
+                                />
+                              </label>
+                              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--ink-muted)]">
+                                누적
+                                <input
+                                  className="field w-24 px-2 py-1"
+                                  inputMode="numeric"
+                                  value={draftMileage}
+                                  aria-label={`${u.displayName} 누적 마일리지`}
+                                  onChange={(event) => setDraftMileage(event.target.value)}
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <>
+                              {u.availableMileage}
+                              <span className="text-xs text-[var(--ink-muted)]">
+                                {" "}
+                                / 누적 {u.mileage}
+                              </span>
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {revealId === u.id ? (

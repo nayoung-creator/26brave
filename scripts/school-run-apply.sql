@@ -154,6 +154,7 @@ DECLARE
   new_token TEXT;
   now_iso TEXT;
   laps_n INTEGER;
+  mileage_n INTEGER;
   note TEXT;
   record JSONB;
   item JSONB;
@@ -581,6 +582,22 @@ BEGIN
     IF NOT (grade = ANY (grades)) THEN
       RETURN school_run_err('학년을 선택해 주세요.', 400);
     END IF;
+    BEGIN
+      IF COALESCE(payload->>'mileage', '') !~ '^[0-9]+$'
+         OR COALESCE(payload->>'availableMileage', '') !~ '^[0-9]+$' THEN
+        RETURN school_run_err('마일리지는 0 이상의 정수로 입력해 주세요.', 400);
+      END IF;
+      mileage_n := (payload->>'mileage')::int;
+      available := (payload->>'availableMileage')::int;
+    EXCEPTION WHEN others THEN
+      RETURN school_run_err('마일리지는 0 이상의 정수로 입력해 주세요.', 400);
+    END;
+    IF mileage_n > 100000 OR available > 100000 THEN
+      RETURN school_run_err('마일리지는 100000 이하로 입력해 주세요.', 400);
+    END IF;
+    IF available > mileage_n THEN
+      RETURN school_run_err('보유 마일리지는 누적 마일리지보다 클 수 없습니다.', 400);
+    END IF;
     SELECT u INTO target
     FROM jsonb_array_elements(COALESCE(state->'users', '[]'::jsonb)) AS u
     WHERE u->>'id' = target_id
@@ -598,6 +615,8 @@ BEGIN
     END IF;
     updated := jsonb_set(target, '{username}', to_jsonb(uname));
     updated := jsonb_set(updated, '{grade}', to_jsonb(grade));
+    updated := jsonb_set(updated, '{mileage}', to_jsonb(mileage_n));
+    updated := jsonb_set(updated, '{spentMileage}', to_jsonb(mileage_n - available));
     state := school_run_put_user(state, updated);
     UPDATE school_run_state SET doc = state WHERE id = 1;
     SELECT * INTO target_counts FROM school_run_counts(state, updated->>'id');
