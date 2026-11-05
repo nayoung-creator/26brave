@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimalAvatar } from "./AnimalAvatar";
+import { GrowthBadgeImage } from "./GrowthBadge";
 import { PlaygroundTrack } from "./PlaygroundTrack";
 import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, getItem, stageName } from "@/lib/catalog";
 import {
@@ -10,6 +11,7 @@ import {
   logout as cloudLogout,
   participants as fetchParticipants,
 } from "@/lib/cloud";
+import { growthBadgesFor } from "@/lib/badges";
 import {
   GRADES,
   type AdminUserView,
@@ -316,19 +318,8 @@ export function Dashboard({ user, onUserChange }: Props) {
     [shopCategory],
   );
 
-  const badges = useMemo(() => {
-    const total = user.totalLaps;
-    return [
-      { name: "첫 발걸음", detail: "누적 1바퀴", earned: total >= 1 },
-      { name: "운동장 탐험가", detail: "누적 10바퀴", earned: total >= 10 },
-      { name: "꾸준한 러너", detail: "누적 30바퀴", earned: total >= 30 },
-      { name: "첫 진화", detail: "누적 50 마일리지", earned: user.mileage >= 50 },
-      { name: "완전 진화", detail: "누적 100 마일리지", earned: user.mileage >= 100 },
-      { name: "밥 잘 주는 친구", detail: "먹이 3회", earned: user.mealsFed >= 3 },
-      { name: "간식 요정", detail: "간식 3회", earned: user.snacksFed >= 3 },
-      { name: "다정한 친구", detail: "간식·돌봄 6회", earned: user.snacksFed >= 6 },
-    ];
-  }, [user]);
+  const badges = useMemo(() => growthBadgesFor(user), [user]);
+  const earnedBadges = badges.filter((badge) => badge.earned);
 
   return (
     <div className="flex min-h-dvh w-full flex-col bg-[var(--canvas)] md:h-dvh md:flex-row md:overflow-hidden">
@@ -409,9 +400,27 @@ export function Dashboard({ user, onUserChange }: Props) {
               {" · "}오늘 {user.todayLaps}바퀴
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <Stat label="오늘" value={`${user.todayLaps}`} unit="바퀴" />
-            <Stat label="마일리지" value={`${user.availableMileage}`} unit="점" />
+          <div className="ml-auto flex max-w-full items-center gap-3">
+            {earnedBadges.length > 0 ? (
+              <div
+                className="flex max-w-[9.5rem] flex-wrap justify-end gap-1.5 sm:max-w-none"
+                aria-label="획득한 성장 배지"
+              >
+                {earnedBadges.map((badge) => (
+                  <GrowthBadgeImage
+                    key={badge.id}
+                    src={badge.image}
+                    name={badge.name}
+                    earned
+                    size="header"
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="flex shrink-0 items-center gap-3">
+              <Stat label="오늘" value={`${user.todayLaps}`} unit="바퀴" />
+              <Stat label="마일리지" value={`${user.availableMileage}`} unit="점" />
+            </div>
           </div>
         </header>
 
@@ -688,23 +697,29 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">성장 배지</h3>
               <p className="mb-6 text-sm text-[var(--ink-muted)]">
-                순위가 아니라 참여와 지속을 응원하는 배지입니다.
+                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다.
               </p>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {badges.map((badge) => (
                   <div
-                    key={badge.name}
-                    className={`rounded-2xl border p-5 ${
+                    key={badge.id}
+                    className={`rounded-2xl border p-4 text-center ${
                       badge.earned
                         ? "border-[#2F9E8F] bg-[#E8F7F2]"
-                        : "border-[var(--line)] bg-white opacity-70"
+                        : "border-[var(--line)] bg-white"
                     }`}
                   >
-                    <div className="font-display text-2xl">{badge.name}</div>
-                    <div className="mt-2 text-sm text-[var(--ink-muted)]">
+                    <GrowthBadgeImage
+                      src={badge.image}
+                      name={badge.name}
+                      earned={badge.earned}
+                      size="card"
+                    />
+                    <div className="mt-3 font-display text-base leading-tight md:text-xl">{badge.name}</div>
+                    <div className="mt-1 text-sm text-[var(--ink-muted)]">
                       {badge.detail}
                     </div>
-                    <div className="mt-3 text-sm font-semibold">
+                    <div className="mt-2 text-sm font-semibold">
                       {badge.earned ? "획득!" : "도전 중"}
                     </div>
                   </div>
