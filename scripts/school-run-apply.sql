@@ -588,8 +588,12 @@ BEGIN
     uname := btrim(COALESCE(payload->>'username', ''));
     dname := btrim(COALESCE(payload->>'displayName', ''));
     grade := COALESCE(payload->>'grade', '');
+    animal := COALESCE(payload->>'animal', '');
     IF dname = '' OR char_length(dname) > 40 THEN
       RETURN school_run_err('이름을 입력해 주세요.', 400);
+    END IF;
+    IF NOT (animals ? animal) THEN
+      RETURN school_run_err('키울 동물을 선택해 주세요.', 400);
     END IF;
     IF char_length(uname) < 2 OR char_length(uname) > 40 THEN
       RETURN school_run_err('아이디는 2자 이상이어야 합니다.', 400);
@@ -631,6 +635,7 @@ BEGIN
     updated := jsonb_set(target, '{username}', to_jsonb(uname));
     updated := jsonb_set(updated, '{displayName}', to_jsonb(dname));
     updated := jsonb_set(updated, '{grade}', to_jsonb(grade));
+    updated := jsonb_set(updated, '{animal}', to_jsonb(animal));
     updated := jsonb_set(updated, '{mileage}', to_jsonb(mileage_n));
     updated := jsonb_set(updated, '{spentMileage}', to_jsonb(mileage_n - available));
     state := school_run_put_user(state, updated);
