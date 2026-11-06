@@ -61,6 +61,7 @@ DECLARE
   info JSONB;
   result JSONB;
   equipped JSONB;
+  past JSONB;
 BEGIN
   SELECT c.animals, c.evolution_step INTO animals, step
   FROM school_run_catalog c
@@ -76,6 +77,37 @@ BEGIN
     stage := 1;
   END IF;
   info := animals -> animal;
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'id', c->>'id',
+      'name', COALESCE(c->>'name', ''),
+      'animal', COALESCE(c->>'animal', 'dog'),
+      'animalLabel', COALESCE((animals -> COALESCE(c->>'animal', 'dog'))->>'name', '강아지'),
+      'stage', CASE
+        WHEN COALESCE((c->>'mileage')::int, 0) >= step * 2 THEN 3
+        WHEN COALESCE((c->>'mileage')::int, 0) >= step THEN 2
+        ELSE 1
+      END,
+      'stageName', COALESCE(
+        (animals -> COALESCE(c->>'animal', 'dog'))#>>ARRAY['stages', (
+          CASE
+            WHEN COALESCE((c->>'mileage')::int, 0) >= step * 2 THEN 2
+            WHEN COALESCE((c->>'mileage')::int, 0) >= step THEN 1
+            ELSE 0
+          END
+        )::text],
+        ''
+      ),
+      'mileage', COALESCE((c->>'mileage')::int, 0),
+      'fullness', LEAST(100, GREATEST(0, COALESCE((c->>'fullness')::int, 40))),
+      'happiness', LEAST(100, GREATEST(0, COALESCE((c->>'happiness')::int, 40))),
+      'mealsFed', COALESCE((c->>'mealsFed')::int, 0),
+      'snacksFed', COALESCE((c->>'snacksFed')::int, 0),
+      'caresFed', COALESCE((c->>'caresFed')::int, 0)
+    )
+  ), '[]'::jsonb)
+    INTO past
+  FROM jsonb_array_elements(COALESCE(u->'companions', '[]'::jsonb)) AS c;
   IF u ? 'equippedClothesId' AND jsonb_typeof(u->'equippedClothesId') <> 'null' THEN
     equipped := u->'equippedClothesId';
   ELSE
@@ -100,6 +132,15 @@ BEGIN
     'happiness', LEAST(100, GREATEST(0, COALESCE((u->>'happiness')::int, 40))),
     'mealsFed', COALESCE((u->>'mealsFed')::int, 0),
     'snacksFed', COALESCE((u->>'snacksFed')::int, 0),
+    'caresFed', COALESCE((u->>'caresFed')::int, 0),
+    'mealsEver', COALESCE((u->>'mealsEver')::int, 0),
+    'snacksEver', COALESCE((u->>'snacksEver')::int, 0),
+    'caresEver', COALESCE((u->>'caresEver')::int, 0),
+    'mileageEver', COALESCE((u->>'mileageEver')::int, 0),
+    'wasFull', (COALESCE(u->>'wasFull', '') = 'true' OR LEAST(100, GREATEST(0, COALESCE((u->>'fullness')::int, 40))) >= 100),
+    'wasHappy', (COALESCE(u->>'wasHappy', '') = 'true' OR LEAST(100, GREATEST(0, COALESCE((u->>'happiness')::int, 40))) >= 100),
+    'companionName', COALESCE(NULLIF(btrim(COALESCE(u->>'companionName', '')), ''), u->>'displayName'),
+    'companions', past,
     'createdAt', u->>'createdAt',
     'todayLaps', COALESCE(today_laps, 0),
     'monthLaps', COALESCE(month_laps, 0),
@@ -479,22 +520,88 @@ BEGIN
         updated := jsonb_set(actor, '{equippedClothesId}', to_jsonb(item_id));
       END IF;
     ELSE
-      IF item IS NULL OR item->>'category' NOT IN ('food', 'snack') THEN
-        RETURN school_run_err('먹이 또는 간식만 줄 수 있습니다.', 400);
+      IF item IS NULL OR (
+        item->>'category' NOT IN ('food', 'snack', 'care')
+        AND COALESCE(payload->>'kind', '') <> 'care'
+      ) THEN
+        RETURN school_run_err('먹이, 간식, 돌봄만 줄 수 있습니다.', 400);
       END IF;
       IF available < price THEN
         RETURN school_run_err('마일리지가 부족합니다. 운동장을 더 달려 보세요!', 400);
       END IF;
       updated := jsonb_set(actor, '{spentMileage}', to_jsonb(COALESCE((actor->>'spentMileage')::int, 0) + price));
-      IF item->>'category' = 'food' THEN
+      IF COALESCE(payload->>'kind', item->>'category') = 'care' OR item->>'category' = 'care' THEN
+        updated := jsonb_set(updated, '{happiness}', to_jsonb(LEAST(100, COALESCE((actor->>'happiness')::int, 40) + care_gain)));
+        updated := jsonb_set(updated, '{caresFed}', to_jsonb(COALESCE((actor->>'caresFed')::int, 0) + 1));
+        IF COALESCE((updated->>'happiness')::int, 0) >= 100 THEN
+          updated := jsonb_set(updated, '{wasHappy}', 'true'::jsonb);
+        END IF;
+      ELSIF item->>'category' = 'food' THEN
         updated := jsonb_set(updated, '{fullness}', to_jsonb(LEAST(100, COALESCE((actor->>'fullness')::int, 40) + care_gain)));
         updated := jsonb_set(updated, '{mealsFed}', to_jsonb(COALESCE((actor->>'mealsFed')::int, 0) + 1));
+        IF COALESCE((updated->>'fullness')::int, 0) >= 100 THEN
+          updated := jsonb_set(updated, '{wasFull}', 'true'::jsonb);
+        END IF;
       ELSE
         updated := jsonb_set(updated, '{happiness}', to_jsonb(LEAST(100, COALESCE((actor->>'happiness')::int, 40) + care_gain)));
         updated := jsonb_set(updated, '{snacksFed}', to_jsonb(COALESCE((actor->>'snacksFed')::int, 0) + 1));
+        IF COALESCE((updated->>'happiness')::int, 0) >= 100 THEN
+          updated := jsonb_set(updated, '{wasHappy}', 'true'::jsonb);
+        END IF;
       END IF;
     END IF;
 
+    state := school_run_put_user(state, updated);
+    UPDATE school_run_state SET doc = state WHERE id = 1;
+    SELECT * INTO actor_counts FROM school_run_counts(state, updated->>'id');
+    RETURN jsonb_build_object(
+      'ok', true,
+      'user', school_run_shape(updated, false, actor_counts.today_laps, actor_counts.month_laps, actor_counts.total_laps)
+    );
+  END IF;
+
+  IF action = 'newCompanion' THEN
+    IF COALESCE((actor->>'mileage')::int, 0) < 100
+       OR COALESCE((actor->>'fullness')::int, 0) < 100
+       OR COALESCE((actor->>'happiness')::int, 0) < 100 THEN
+      RETURN school_run_err('3단계까지 진화하고 포만감과 행복지수를 모두 채운 뒤에 새 친구를 키울 수 있습니다.', 400);
+    END IF;
+    dname := btrim(COALESCE(payload->>'name', ''));
+    animal := COALESCE(payload->>'animal', '');
+    IF dname = '' OR char_length(dname) > 40 THEN
+      RETURN school_run_err('이름을 입력해 주세요.', 400);
+    END IF;
+    IF NOT (animals ? animal) THEN
+      RETURN school_run_err('키울 동물을 선택해 주세요.', 400);
+    END IF;
+    record := jsonb_build_object(
+      'id', gen_random_uuid()::text,
+      'name', COALESCE(NULLIF(btrim(COALESCE(actor->>'companionName', '')), ''), actor->>'displayName'),
+      'animal', COALESCE(actor->>'animal', 'dog'),
+      'mileage', COALESCE((actor->>'mileage')::int, 0),
+      'fullness', LEAST(100, COALESCE((actor->>'fullness')::int, 40)),
+      'happiness', LEAST(100, COALESCE((actor->>'happiness')::int, 40)),
+      'mealsFed', COALESCE((actor->>'mealsFed')::int, 0),
+      'snacksFed', COALESCE((actor->>'snacksFed')::int, 0),
+      'caresFed', COALESCE((actor->>'caresFed')::int, 0)
+    );
+    updated := jsonb_set(actor, '{companions}', COALESCE(actor->'companions', '[]'::jsonb) || jsonb_build_array(record));
+    updated := jsonb_set(updated, '{mileageEver}', to_jsonb(COALESCE((actor->>'mileageEver')::int, 0) + COALESCE((actor->>'mileage')::int, 0)));
+    updated := jsonb_set(updated, '{mealsEver}', to_jsonb(COALESCE((actor->>'mealsEver')::int, 0) + COALESCE((actor->>'mealsFed')::int, 0)));
+    updated := jsonb_set(updated, '{snacksEver}', to_jsonb(COALESCE((actor->>'snacksEver')::int, 0) + COALESCE((actor->>'snacksFed')::int, 0)));
+    updated := jsonb_set(updated, '{caresEver}', to_jsonb(COALESCE((actor->>'caresEver')::int, 0) + COALESCE((actor->>'caresFed')::int, 0)));
+    updated := jsonb_set(updated, '{wasFull}', 'true'::jsonb);
+    updated := jsonb_set(updated, '{wasHappy}', 'true'::jsonb);
+    updated := jsonb_set(updated, '{companionName}', to_jsonb(dname));
+    updated := jsonb_set(updated, '{animal}', to_jsonb(animal));
+    updated := jsonb_set(updated, '{mileage}', '0'::jsonb);
+    updated := jsonb_set(updated, '{spentMileage}', '0'::jsonb);
+    updated := jsonb_set(updated, '{fullness}', '40'::jsonb);
+    updated := jsonb_set(updated, '{happiness}', '40'::jsonb);
+    updated := jsonb_set(updated, '{mealsFed}', '0'::jsonb);
+    updated := jsonb_set(updated, '{snacksFed}', '0'::jsonb);
+    updated := jsonb_set(updated, '{caresFed}', '0'::jsonb);
+    updated := jsonb_set(updated, '{equippedClothesId}', 'null'::jsonb);
     state := school_run_put_user(state, updated);
     UPDATE school_run_state SET doc = state WHERE id = 1;
     SELECT * INTO actor_counts FROM school_run_counts(state, updated->>'id');
