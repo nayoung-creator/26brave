@@ -97,7 +97,7 @@ body {
 }
 
 .btn-ghost {
-  @apply rounded-xl border border-[var(--line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--panel-soft)];
+  @apply rounded-xl border border-[var(--line)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--ink)] transition hover:bg-[var(--panel-soft)] disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .choice {

@@ -365,6 +365,15 @@ BEGIN
     IF laps_n > 50 THEN
       RETURN school_run_err('바퀴 수는 1~50 사이여야 합니다.', 400);
     END IF;
+    IF EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(COALESCE(state->'laps', '[]'::jsonb)) AS l
+      WHERE l->>'userId' = actor->>'id'
+        AND ((l->>'recordedAt')::timestamptz AT TIME ZONE 'Asia/Seoul')::date
+            = (timezone('Asia/Seoul', now()))::date
+    ) THEN
+      RETURN school_run_err('오늘의 기록은 하루에 한 번만 입력할 수 있습니다.', 400);
+    END IF;
     note := btrim(COALESCE(payload->>'note', ''));
     IF char_length(note) > 80 THEN
       note := left(note, 80);
@@ -577,7 +586,11 @@ BEGIN
   IF action = 'adminProfile' THEN
     target_id := btrim(COALESCE(payload->>'userId', ''));
     uname := btrim(COALESCE(payload->>'username', ''));
+    dname := btrim(COALESCE(payload->>'displayName', ''));
     grade := COALESCE(payload->>'grade', '');
+    IF dname = '' OR char_length(dname) > 40 THEN
+      RETURN school_run_err('이름을 입력해 주세요.', 400);
+    END IF;
     IF char_length(uname) < 2 OR char_length(uname) > 40 THEN
       RETURN school_run_err('아이디는 2자 이상이어야 합니다.', 400);
     END IF;
@@ -616,6 +629,7 @@ BEGIN
       RETURN school_run_err('이미 사용 중인 아이디입니다.', 409);
     END IF;
     updated := jsonb_set(target, '{username}', to_jsonb(uname));
+    updated := jsonb_set(updated, '{displayName}', to_jsonb(dname));
     updated := jsonb_set(updated, '{grade}', to_jsonb(grade));
     updated := jsonb_set(updated, '{mileage}', to_jsonb(mileage_n));
     updated := jsonb_set(updated, '{spentMileage}', to_jsonb(mileage_n - available));

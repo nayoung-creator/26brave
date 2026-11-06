@@ -67,7 +67,9 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [revealId, setRevealId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftUsername, setDraftUsername] = useState("");
+  const [draftDisplayName, setDraftDisplayName] = useState("");
   const [draftGrade, setDraftGrade] = useState<Grade>("1학년");
+  const [savingLap, setSavingLap] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState("0");
   const [draftMileage, setDraftMileage] = useState("0");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -151,11 +153,21 @@ export function Dashboard({ user, onUserChange }: Props) {
     if (tab === "track") void loadParticipants();
   }, [tab, loadAdmin, loadParticipants]);
 
+  const recordedToday = lapsToday.length > 0 || user.todayLaps > 0;
+
   async function submitLaps(e: FormEvent) {
     e.preventDefault();
+    if (savingLap) return;
+    if (recordedToday) {
+      setMessage("오늘의 기록은 하루에 한 번만 입력할 수 있습니다.");
+      return;
+    }
+    setSavingLap(true);
     setMessage("");
     const res = await cloud("addLap", { laps: lapInput, note });
+    if (!alive.current) return;
     if (!res.ok) {
+      setSavingLap(false);
       setMessage(res.data.error ?? "저장 실패");
       return;
     }
@@ -166,6 +178,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     if (data.user) onUserChange(data.user);
     await loadRecords();
     await loadParticipants();
+    if (alive.current) setSavingLap(false);
   }
 
   async function buyItem(item: ShopItem) {
@@ -242,6 +255,7 @@ export function Dashboard({ user, onUserChange }: Props) {
   function startEdit(account: AdminUserView) {
     setEditingId(account.id);
     setDraftUsername(account.username);
+    setDraftDisplayName(account.displayName);
     setDraftGrade(account.grade);
     setDraftAvailable(String(account.availableMileage));
     setDraftMileage(String(account.mileage));
@@ -257,6 +271,11 @@ export function Dashboard({ user, onUserChange }: Props) {
 
   async function saveProfile(account: AdminUserView) {
     const username = draftUsername.trim();
+    const displayName = draftDisplayName.trim();
+    if (displayName.length < 1 || displayName.length > 40) {
+      setMessage("이름을 입력해 주세요.");
+      return;
+    }
     if (username.length < 2) {
       setMessage("아이디는 2자 이상이어야 합니다.");
       return;
@@ -276,6 +295,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     const res = await cloud("adminProfile", {
       userId: account.id,
       username,
+      displayName,
       grade: draftGrade,
       mileage,
       availableMileage,
@@ -288,6 +308,12 @@ export function Dashboard({ user, onUserChange }: Props) {
           ? "저장 권한이 없습니다. Neon 데이터베이스 소유자로 계정 수정 기능을 한 번 적용해 주세요."
           : err,
       );
+      return;
+    }
+    if (res.data.user.displayName !== displayName) {
+      setMessage("이름은 아직 공유 저장소에 반영되지 않았습니다. Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요.");
+      setEditingId(null);
+      await loadAdmin();
       return;
     }
     if (res.data.user.id === user.id) {
@@ -460,9 +486,14 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="grid grid-cols-1 gap-4 md:h-full md:grid-cols-[1.1fr_0.9fr] md:gap-6">
               <div className="panel flex flex-col">
                 <h3 className="section-title">오늘 바퀴 기록하기</h3>
-                <p className="mb-6 text-sm text-[var(--ink-muted)]">
-                  학교 운동장을 한 바퀴 돌 때마다 1 마일리지가 쌓입니다.
+                <p className="mb-4 text-sm text-[var(--ink-muted)]">
+                  학교 운동장을 한 바퀴 돌 때마다 1 마일리지가 쌓입니다. 오늘의 기록은 하루에 한 번만 입력할 수 있습니다.
                 </p>
+                {recordedToday ? (
+                  <p className="mb-4 rounded-xl bg-[#FFF4E5] px-4 py-3 text-sm text-[#8A5A12]">
+                    오늘은 이미 기록을 입력했습니다. 내일 다시 입력해 주세요.
+                  </p>
+                ) : null}
                 <form onSubmit={submitLaps} className="space-y-5">
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium">바퀴 수</span>
@@ -470,6 +501,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                       <button
                         type="button"
                         className="btn-ghost px-4"
+                        disabled={recordedToday || savingLap}
                         onClick={() => setLapInput((v) => Math.max(1, v - 1))}
                       >
                         −
@@ -480,11 +512,13 @@ export function Dashboard({ user, onUserChange }: Props) {
                         max={50}
                         className="field text-center text-2xl font-bold"
                         value={lapInput}
+                        disabled={recordedToday || savingLap}
                         onChange={(e) => setLapInput(Number(e.target.value))}
                       />
                       <button
                         type="button"
                         className="btn-ghost px-4"
+                        disabled={recordedToday || savingLap}
                         onClick={() => setLapInput((v) => Math.min(50, v + 1))}
                       >
                         +
@@ -498,12 +532,13 @@ export function Dashboard({ user, onUserChange }: Props) {
                     <input
                       className="field"
                       value={note}
+                      disabled={recordedToday || savingLap}
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="천천히, 친구와 함께, 기분 좋음..."
                     />
                   </label>
-                  <button className="btn-primary" type="submit">
-                    기록 저장하기
+                  <button className="btn-primary" type="submit" disabled={recordedToday || savingLap}>
+                    {recordedToday ? "오늘은 입력 완료" : savingLap ? "저장 중" : "기록 저장하기"}
                   </button>
                 </form>
               </div>
@@ -572,12 +607,15 @@ export function Dashboard({ user, onUserChange }: Props) {
               <div className="h-[min(78vw,520px)] min-h-[280px] md:h-auto md:min-h-[420px] md:flex-1">
                 <PlaygroundTrack users={participants} />
               </div>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {participants.slice(0, 8).map((p) => (
-                  <div key={p.id} className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
-                    <div className="truncate text-sm font-bold">{p.displayName}</div>
-                    <div className="text-xs text-[var(--ink-muted)]">
-                      {p.stageName} · 누적 {p.totalLaps}바퀴
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                {participants.map((p, index) => (
+                  <div key={p.id} className="min-w-0 rounded-lg bg-white/80 px-1.5 py-1 shadow-sm">
+                    <div className="truncate text-[11px] font-bold leading-tight">
+                      <span className="mr-0.5 font-medium text-[var(--ink-muted)]">{index + 1}</span>
+                      {p.displayName}
+                    </div>
+                    <div className="truncate text-[10px] leading-tight text-[var(--ink-muted)]">
+                      {p.totalLaps}바퀴
                     </div>
                   </div>
                 ))}
@@ -798,7 +836,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 아이디, 학년, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
+                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 이름, 아이디, 학년, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
               </p>
               <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -818,10 +856,23 @@ export function Dashboard({ user, onUserChange }: Props) {
                     {adminUsers.map((u) => (
                       <tr key={u.id} className="border-t border-[var(--line)]">
                         <td className="px-4 py-3 font-semibold">
-                          {u.displayName}
-                          {u.role === "admin" ? (
-                            <span className="ml-2 text-xs text-[var(--accent)]">관리자</span>
-                          ) : null}
+                          {editingId === u.id ? (
+                            <input
+                              className="field w-28 px-2 py-1.5"
+                              value={draftDisplayName}
+                              maxLength={40}
+                              autoComplete="off"
+                              aria-label={`${u.displayName} 이름`}
+                              onChange={(event) => setDraftDisplayName(event.target.value)}
+                            />
+                          ) : (
+                            <>
+                              {u.displayName}
+                              {u.role === "admin" ? (
+                                <span className="ml-2 text-xs text-[var(--accent)]">관리자</span>
+                              ) : null}
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {editingId === u.id ? (
