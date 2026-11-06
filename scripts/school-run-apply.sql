@@ -1,6 +1,8 @@
 -- Shared school-run document.
 -- school_run_app may execute school_run_apply() only.
 -- Passwords stay inside school_run_state and are returned only to an admin session.
+-- Neon SQL Editor에서 데이터베이스 소유자로 이 파일 전체를 한 번 실행하면 계정 수정이 저장됩니다.
+-- 참가자 기록은 지우지 않습니다.
 
 CREATE TABLE IF NOT EXISTS school_run_catalog (
   id INTEGER PRIMARY KEY,

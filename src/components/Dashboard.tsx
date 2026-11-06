@@ -285,7 +285,7 @@ export function Dashboard({ user, onUserChange }: Props) {
       const err = res.data.error ?? "수정 실패";
       setMessage(
         err === "알 수 없는 요청입니다."
-          ? "아이디, 학년, 마일리지를 저장하지 못했습니다. 공유 저장소에 계정 수정 기능이 아직 없습니다."
+          ? "저장 권한이 없습니다. Neon 데이터베이스 소유자로 계정 수정 기능을 한 번 적용해 주세요."
           : err,
       );
       return;
