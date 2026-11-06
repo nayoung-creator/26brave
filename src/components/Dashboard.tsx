@@ -11,7 +11,7 @@ import {
   logout as cloudLogout,
   participants as fetchParticipants,
 } from "@/lib/cloud";
-import { growthBadgesFor } from "@/lib/badges";
+import { accountMileage, badgeStatsFor, growthBadgesFor } from "@/lib/badges";
 import {
   GRADES,
   type AdminUserView,
@@ -387,9 +387,19 @@ export function Dashboard({ user, onUserChange }: Props) {
     [shopCategory],
   );
 
-  const badges = useMemo(() => growthBadgesFor(user), [user]);
-  const earnedBadges = badges.filter((badge) => badge.earned);
   const pastFriends = user.companions ?? [];
+  const badgeFriend =
+    friendId === "active" ? null : pastFriends.find((friend) => friend.id === friendId) ?? null;
+  const activeBadgeUser = useMemo(() => badgeStatsFor(user, null), [user]);
+  const badgeUser = useMemo(
+    () => badgeStatsFor(user, badgeFriend),
+    [user, badgeFriend],
+  );
+  const badges = useMemo(() => growthBadgesFor(badgeUser), [badgeUser]);
+  const earnedBadges = useMemo(
+    () => growthBadgesFor(activeBadgeUser).filter((badge) => badge.earned),
+    [activeBadgeUser],
+  );
   const activeName = user.companionName || user.displayName;
   const readyForNext =
     user.mileage >= EVOLUTION_STEP * 2 && user.fullness >= 100 && user.happiness >= 100;
@@ -738,8 +748,8 @@ export function Dashboard({ user, onUserChange }: Props) {
                 </div>
                 <h3 className="section-title">{shown.name}</h3>
                 <p className="text-sm text-[var(--ink-muted)]">
-                  {shown.stageName} · {getAnimal(shown.animal).name} · 누적 {shown.mileage} 마일리지
-                  {shown.active ? "" : " · 돌보기를 마친 친구"}
+                  {shown.stageName} · {getAnimal(shown.animal).name} · 이 친구 {shown.mileage} 마일리지
+                  {shown.active ? ` · 계정 누적 ${accountMileage(user)}` : " · 돌보기를 마친 친구"}
                 </p>
                 <div className="my-3 flex justify-center py-2">
                   <AnimalAvatar
@@ -944,9 +954,38 @@ export function Dashboard({ user, onUserChange }: Props) {
 
           {tab === "growth" && (
             <section className="panel md:h-full md:overflow-auto">
+              <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="배지를 볼 성장 친구">
+                <button
+                  type="button"
+                  aria-pressed={friendId === "active" || badgeFriend === null}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                    friendId === "active" || badgeFriend === null
+                      ? "bg-[var(--brand)] text-white"
+                      : "bg-[var(--panel-soft)] text-[var(--ink)]"
+                  }`}
+                  onClick={() => setFriendId("active")}
+                >
+                  지금 · {activeName}
+                </button>
+                {pastFriends.map((friend) => (
+                  <button
+                    key={friend.id}
+                    type="button"
+                    aria-pressed={friendId === friend.id}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                      friendId === friend.id
+                        ? "bg-[var(--brand)] text-white"
+                        : "bg-[var(--panel-soft)] text-[var(--ink)]"
+                    }`}
+                    onClick={() => setFriendId(friend.id)}
+                  >
+                    {friend.name}
+                  </button>
+                ))}
+              </div>
               <h3 className="section-title">성장 배지</h3>
               <p className="mb-6 text-sm text-[var(--ink-muted)]">
-                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다. 달리기와 진화 배지는 내가 고른 성장 친구로 나타납니다. 바퀴, 마일리지, 먹이, 간식, 돌봄을 단계마다 모읍니다.
+                성장 배지는 키우는 친구마다 새로 모읍니다. 계정의 누적 마일리지는 그대로 남습니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다. 달리기와 진화 배지는 선택한 성장 친구로 나타납니다.
               </p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {badges.map((badge) => (
@@ -963,7 +1002,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                       name={badge.name}
                       earned={badge.earned}
                       size="card"
-                      animal={user.animal}
+                      animal={badgeUser.animal}
                       animalStage={badge.animalStage}
                       motif={badge.motif}
                     />
@@ -990,7 +1029,8 @@ export function Dashboard({ user, onUserChange }: Props) {
                   <Row label="학년/구분" value={user.grade} />
                   <Row label="키우는 동물" value={`${user.animalLabel} · ${user.stageName}`} />
                   <Row label="역할" value={user.role === "admin" ? "관리자" : "참가자"} />
-                  <Row label="누적 마일리지" value={`${user.mileage}`} />
+                  <Row label="누적 마일리지" value={`${accountMileage(user)}`} />
+                  <Row label="이 친구 마일리지" value={`${user.mileage}`} />
                   <Row label="사용 마일리지" value={`${user.spentMileage}`} />
                 </dl>
               </div>

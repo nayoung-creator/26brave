@@ -105,6 +105,7 @@ export interface CompanionView {
   mealsFed: number;
   snacksFed: number;
   caresFed: number;
+  laps: number;
 }
 
 export interface PublicUser {
@@ -131,6 +132,7 @@ export interface PublicUser {
   snacksEver?: number;
   caresEver?: number;
   mileageEver?: number;
+  companionLaps?: number | null;
   wasFull?: boolean;
   wasHappy?: boolean;
   companionName?: string;
