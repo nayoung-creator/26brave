@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { AnimalAvatar } from "./AnimalAvatar";
 import { GrowthBadgeImage } from "./GrowthBadge";
 import { PlaygroundTrack } from "./PlaygroundTrack";
-import { EVOLUTION_STEP, SHOP_ITEMS, getAnimal, getItem, stageName } from "@/lib/catalog";
+import { ANIMALS, EVOLUTION_STEP, SHOP_ITEMS, getAnimal, getItem, stageName } from "@/lib/catalog";
 import {
   adminUsers as fetchAdminUsers,
   cloud,
@@ -15,6 +15,7 @@ import { growthBadgesFor } from "@/lib/badges";
 import {
   GRADES,
   type AdminUserView,
+  type AnimalId,
   type EvolutionStage,
   type Grade,
   type LapRecord,
@@ -69,6 +70,7 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [draftUsername, setDraftUsername] = useState("");
   const [draftDisplayName, setDraftDisplayName] = useState("");
   const [draftGrade, setDraftGrade] = useState<Grade>("1학년");
+  const [draftAnimal, setDraftAnimal] = useState<AnimalId>("dog");
   const [savingLap, setSavingLap] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState("0");
   const [draftMileage, setDraftMileage] = useState("0");
@@ -257,6 +259,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     setDraftUsername(account.username);
     setDraftDisplayName(account.displayName);
     setDraftGrade(account.grade);
+    setDraftAnimal(account.animal);
     setDraftAvailable(String(account.availableMileage));
     setDraftMileage(String(account.mileage));
     setMessage("");
@@ -297,6 +300,7 @@ export function Dashboard({ user, onUserChange }: Props) {
       username,
       displayName,
       grade: draftGrade,
+      animal: draftAnimal,
       mileage,
       availableMileage,
     });
@@ -310,8 +314,14 @@ export function Dashboard({ user, onUserChange }: Props) {
       );
       return;
     }
-    if (res.data.user.displayName !== displayName) {
-      setMessage("이름은 아직 공유 저장소에 반영되지 않았습니다. Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요.");
+    const missed = [
+      res.data.user.displayName !== displayName ? "이름" : "",
+      res.data.user.animal !== draftAnimal ? "동물" : "",
+    ].filter(Boolean);
+    if (missed.length > 0) {
+      setMessage(
+        `${missed.join("과 ")}은 아직 공유 저장소에 반영되지 않았습니다. Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요.`,
+      );
       setEditingId(null);
       await loadAdmin();
       return;
@@ -836,7 +846,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 이름, 아이디, 학년, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
+                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 이름, 아이디, 학년, 동물, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
               </p>
               <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -906,7 +916,24 @@ export function Dashboard({ user, onUserChange }: Props) {
                             u.grade
                           )}
                         </td>
-                        <td className="px-4 py-3">{u.stageName}</td>
+                        <td className="px-4 py-3">
+                          {editingId === u.id ? (
+                            <select
+                              className="field w-28 px-2 py-1.5"
+                              value={draftAnimal}
+                              aria-label={`${u.displayName} 동물`}
+                              onChange={(event) => setDraftAnimal(event.target.value as AnimalId)}
+                            >
+                              {ANIMALS.map((pet) => (
+                                <option key={pet.id} value={pet.id}>
+                                  {pet.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            u.stageName
+                          )}
+                        </td>
                         <td className="px-4 py-3">{u.totalLaps}</td>
                         <td className="px-4 py-3">
                           {editingId === u.id ? (
