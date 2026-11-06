@@ -92,6 +92,21 @@ export interface Database {
   laps: LapRecord[];
 }
 
+export interface CompanionView {
+  id: string;
+  name: string;
+  animal: AnimalId;
+  animalLabel: string;
+  stage: EvolutionStage;
+  stageName: string;
+  mileage: number;
+  fullness: number;
+  happiness: number;
+  mealsFed: number;
+  snacksFed: number;
+  caresFed: number;
+}
+
 export interface PublicUser {
   id: string;
   username: string;
@@ -111,6 +126,15 @@ export interface PublicUser {
   happiness: number;
   mealsFed: number;
   snacksFed: number;
+  caresFed?: number;
+  mealsEver?: number;
+  snacksEver?: number;
+  caresEver?: number;
+  mileageEver?: number;
+  wasFull?: boolean;
+  wasHappy?: boolean;
+  companionName?: string;
+  companions?: CompanionView[];
   createdAt: string;
   todayLaps: number;
   monthLaps: number;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import type { BadgeMotif } from "@/lib/badges";
 import type { AnimalId, EvolutionStage } from "@/lib/types";
 import { getAnimal } from "@/lib/catalog";
 
@@ -11,6 +12,7 @@ export function GrowthBadgeImage({
   size,
   animal,
   animalStage,
+  motif,
 }: {
   src: string;
   name: string;
@@ -18,6 +20,7 @@ export function GrowthBadgeImage({
   size: "header" | "card";
   animal?: AnimalId;
   animalStage?: EvolutionStage;
+  motif?: BadgeMotif;
 }) {
   const frame =
     size === "header"
@@ -28,6 +31,18 @@ export function GrowthBadgeImage({
   const className = `${frame} rounded-full object-cover shadow-sm ring-1 ring-[#ead7b8] ${
     earned ? "" : "grayscale"
   }`;
+
+  if (motif && !(animal && animalStage)) {
+    return (
+      <span
+        className={`relative inline-block overflow-hidden ${className}`}
+        title={`${name}${earned ? "" : " · 도전 중"}`}
+      >
+        <MotifScene motif={motif} />
+        <MedalRing />
+      </span>
+    );
+  }
 
   if (animal && animalStage) {
     const scene =
@@ -96,6 +111,37 @@ function Star({
     [cx - arm, cy - arm],
   ];
   return <polygon points={points.map((point) => point.join(",")).join(" ")} fill={fill} />;
+}
+
+function MotifScene({ motif }: { motif: BadgeMotif }) {
+  const fill =
+    motif === "mileage"
+      ? "#F2C14E"
+      : motif === "meal"
+        ? "#E7B08A"
+        : motif === "snack"
+          ? "#F28B82"
+          : motif === "care"
+            ? "#F4A7C5"
+            : motif === "full"
+              ? "#8FCB86"
+              : motif === "joy"
+                ? "#7EB6F2"
+                : "#F7E7C2";
+  return (
+    <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full" aria-hidden>
+      <circle cx="50" cy="50" r="50" fill="#FBF7EF" />
+      <circle cx="50" cy="50" r="34" fill={fill} />
+      {motif === "mileage" ? <circle cx="50" cy="50" r="16" fill="none" stroke="#FFF8E8" strokeWidth="4" /> : null}
+      {motif === "meal" ? <ellipse cx="50" cy="56" rx="16" ry="8" fill="#FFF6EA" /> : null}
+      {motif === "snack" ? <circle cx="50" cy="50" r="8" fill="#FFF6EA" /> : null}
+      {motif === "care" ? <path d="M50 62c-12-8-18-16-18-24a8 8 0 0 1 14-5l4 5 4-5a8 8 0 0 1 14 5c0 8-6 16-18 24z" fill="#FFF6EA" /> : null}
+      {motif === "full" ? <ellipse cx="50" cy="54" rx="14" ry="10" fill="#F4FFE8" /> : null}
+      {motif === "joy" ? (
+        <path d="M38 48h6M56 48h6M40 58c4 6 16 6 20 0" fill="none" stroke="#FFF8E8" strokeWidth="3" strokeLinecap="round" />
+      ) : null}
+    </svg>
+  );
 }
 
 function BadgeScene({ kind }: { kind: "runner" | "first-evolve" | "full-evolve" }) {

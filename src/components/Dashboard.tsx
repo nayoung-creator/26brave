@@ -72,6 +72,11 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [draftGrade, setDraftGrade] = useState<Grade>("1학년");
   const [draftAnimal, setDraftAnimal] = useState<AnimalId>("dog");
   const [savingLap, setSavingLap] = useState(false);
+  const [friendId, setFriendId] = useState("active");
+  const [raising, setRaising] = useState(false);
+  const [friendName, setFriendName] = useState("");
+  const [friendAnimal, setFriendAnimal] = useState<AnimalId>("dog");
+  const [raisingBusy, setRaisingBusy] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState("0");
   const [draftMileage, setDraftMileage] = useState("0");
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -91,6 +96,11 @@ export function Dashboard({ user, onUserChange }: Props) {
       alive.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    setFriendId("active");
+    setRaising(false);
+  }, [user.id]);
 
   const loadRecords = useCallback(async () => {
     const [todayRes, monthRes] = await Promise.all([
@@ -190,7 +200,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     const before = { fullness: user.fullness, happiness: user.happiness };
     const settled = item.settleId ? (getItem(item.settleId) ?? item) : item;
     const action = settled.category === "clothes" ? "buy" : "feed";
-    const res = await cloud(action, { itemId: settled.id });
+    const res = await cloud(action, { itemId: settled.id, kind: item.category });
     if (!alive.current) return;
     if (!res.ok || !res.data.user) {
       setPendingId(null);
@@ -379,6 +389,62 @@ export function Dashboard({ user, onUserChange }: Props) {
 
   const badges = useMemo(() => growthBadgesFor(user), [user]);
   const earnedBadges = badges.filter((badge) => badge.earned);
+  const pastFriends = user.companions ?? [];
+  const activeName = user.companionName || user.displayName;
+  const readyForNext =
+    user.mileage >= EVOLUTION_STEP * 2 && user.fullness >= 100 && user.happiness >= 100;
+  const shown = useMemo(() => {
+    if (friendId !== "active") {
+      const past = (user.companions ?? []).find((friend) => friend.id === friendId);
+      if (past) {
+        return { ...past, equippedClothesId: null as string | null, active: false };
+      }
+    }
+    return {
+      id: "active",
+      name: user.companionName || user.displayName,
+      animal: user.animal,
+      animalLabel: user.animalLabel,
+      stage: user.stage,
+      stageName: user.stageName,
+      mileage: user.mileage,
+      fullness: user.fullness,
+      happiness: user.happiness,
+      mealsFed: user.mealsFed,
+      snacksFed: user.snacksFed,
+      caresFed: user.caresFed ?? 0,
+      equippedClothesId: user.equippedClothesId,
+      active: true,
+    };
+  }, [friendId, user]);
+
+  async function startFriend(event: FormEvent) {
+    event.preventDefault();
+    const name = friendName.trim();
+    if (name.length < 1 || name.length > 40) {
+      setMessage("이름을 입력해 주세요.");
+      return;
+    }
+    setRaisingBusy(true);
+    setMessage("");
+    const res = await cloud("newCompanion", { name, animal: friendAnimal });
+    if (!alive.current) return;
+    setRaisingBusy(false);
+    if (!res.ok || !res.data.user) {
+      const err = res.data.error ?? "새 친구를 시작하지 못했습니다.";
+      setMessage(
+        err === "알 수 없는 요청입니다."
+          ? "새 성장 친구를 저장하려면 Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요."
+          : err,
+      );
+      return;
+    }
+    onUserChange(res.data.user);
+    setFriendId("active");
+    setRaising(false);
+    setFriendName("");
+    setMessage(`${name} 친구와 새로 시작했습니다.`);
+  }
 
   return (
     <div className="flex min-h-dvh w-full flex-col bg-[var(--canvas)] md:h-dvh md:flex-row md:overflow-hidden">
@@ -474,6 +540,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                     size="header"
                     animal={user.animal}
                     animalStage={badge.animalStage}
+                    motif={badge.motif}
                   />
                 ))}
               </div>
@@ -635,25 +702,59 @@ export function Dashboard({ user, onUserChange }: Props) {
 
           {tab === "character" && (
             <section className="grid grid-cols-1 gap-4 md:h-full md:grid-cols-[0.95fr_1.05fr] md:gap-6">
-              <div className="panel flex flex-col md:overflow-auto">
-                <h3 className="section-title">{user.stageName}</h3>
+              <div className="panel flex min-w-0 flex-col md:overflow-auto">
+                <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="돌본 성장 친구">
+                  <button
+                    type="button"
+                    aria-pressed={shown.active}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                      shown.active ? "bg-[var(--brand)] text-white" : "bg-[var(--panel-soft)] text-[var(--ink)]"
+                    }`}
+                    onClick={() => {
+                      setFriendId("active");
+                      setRaising(false);
+                    }}
+                  >
+                    지금 · {activeName}
+                  </button>
+                  {pastFriends.map((friend) => (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      aria-pressed={friendId === friend.id}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                        friendId === friend.id
+                          ? "bg-[var(--brand)] text-white"
+                          : "bg-[var(--panel-soft)] text-[var(--ink)]"
+                      }`}
+                      onClick={() => {
+                        setFriendId(friend.id);
+                        setRaising(false);
+                      }}
+                    >
+                      {friend.name}
+                    </button>
+                  ))}
+                </div>
+                <h3 className="section-title">{shown.name}</h3>
                 <p className="text-sm text-[var(--ink-muted)]">
-                  달린 만큼 자라고, 먹이고 돌보면 더 행복한 {getAnimal(user.animal).name} · 누적 {user.mileage} 마일리지
+                  {shown.stageName} · {getAnimal(shown.animal).name} · 누적 {shown.mileage} 마일리지
+                  {shown.active ? "" : " · 돌보기를 마친 친구"}
                 </p>
                 <div className="my-3 flex justify-center py-2">
                   <AnimalAvatar
-                    animal={user.animal}
-                    stage={user.stage}
-                    clothesId={user.equippedClothesId}
+                    animal={shown.animal}
+                    stage={shown.stage}
+                    clothesId={shown.equippedClothesId}
                     size={210}
-                    treat={treat}
+                    treat={shown.active ? treat : null}
                   />
                 </div>
-                <EvolutionBar mileage={user.mileage} />
+                <EvolutionBar mileage={shown.mileage} />
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   {([1, 2, 3] as EvolutionStage[]).map((stage) => {
-                    const unlocked = user.mileage >= (stage - 1) * EVOLUTION_STEP;
-                    const current = user.stage === stage;
+                    const unlocked = shown.mileage >= (stage - 1) * EVOLUTION_STEP;
+                    const current = shown.stage === stage;
                     return (
                       <div
                         key={stage}
@@ -663,9 +764,9 @@ export function Dashboard({ user, onUserChange }: Props) {
                             : "border-[var(--line)] bg-white"
                         } ${unlocked ? "" : "opacity-45"}`}
                       >
-                        <AnimalAvatar animal={user.animal} stage={stage} size={72} />
+                        <AnimalAvatar animal={shown.animal} stage={stage} size={72} />
                         <div className="text-[11px] font-semibold leading-tight">
-                          {stageName(user.animal, stage)}
+                          {stageName(shown.animal, stage)}
                         </div>
                         <div className="text-[10px] text-[var(--ink-muted)]">
                           {stage === 1 ? "시작" : `${(stage - 1) * EVOLUTION_STEP}점`}
@@ -677,23 +778,98 @@ export function Dashboard({ user, onUserChange }: Props) {
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <Meter
                     label="포만감"
-                    value={user.fullness}
-                    hint={`먹이 ${user.mealsFed}회`}
-                    gain={pops && pops.fullness > 0 ? pops.fullness : 0}
+                    value={shown.fullness}
+                    hint={`먹이 ${shown.mealsFed}회`}
+                    gain={shown.active && pops && pops.fullness > 0 ? pops.fullness : 0}
                     gainKey={pops?.token ?? 0}
                   />
                   <Meter
                     label="행복지수"
-                    value={user.happiness}
-                    hint={`간식·돌봄 ${user.snacksFed}회`}
-                    gain={pops && pops.happiness > 0 ? pops.happiness : 0}
+                    value={shown.happiness}
+                    hint={`간식 ${shown.snacksFed}회 · 돌봄 ${shown.caresFed}회`}
+                    gain={shown.active && pops && pops.happiness > 0 ? pops.happiness : 0}
                     gainKey={pops?.token ?? 0}
                   />
                 </div>
+                {shown.active && readyForNext && !raising ? (
+                  <button
+                    type="button"
+                    className="btn-primary mt-4"
+                    onClick={() => {
+                      setRaising(true);
+                      setFriendName("");
+                      setFriendAnimal("dog");
+                    }}
+                  >
+                    새 성장 친구 키우기
+                  </button>
+                ) : null}
+                {shown.active && !readyForNext ? (
+                  <p className="mt-4 text-xs leading-relaxed text-[var(--ink-muted)]">
+                    누적 100 마일리지로 3단계까지 진화하고, 포만감과 행복지수를 모두 채우면 새 성장 친구를 키울 수 있습니다.
+                  </p>
+                ) : null}
+                {shown.active && raising ? (
+                  <form onSubmit={startFriend} className="mt-4 space-y-3">
+                    <label className="block">
+                      <span className="mb-1.5 block text-sm font-medium">새 이름</span>
+                      <input
+                        className="field"
+                        value={friendName}
+                        maxLength={40}
+                        autoComplete="off"
+                        aria-label="새 성장 친구 이름"
+                        onChange={(event) => setFriendName(event.target.value)}
+                      />
+                    </label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {ANIMALS.map((pet) => (
+                        <button
+                          key={pet.id}
+                          type="button"
+                          aria-pressed={friendAnimal === pet.id}
+                          className={`rounded-2xl border px-1 py-1.5 text-center ${
+                            friendAnimal === pet.id
+                              ? "border-[var(--brand)] bg-[#E7F4EC]"
+                              : "border-[var(--line)] bg-white"
+                          }`}
+                          onClick={() => setFriendAnimal(pet.id)}
+                        >
+                          <AnimalAvatar animal={pet.id} stage={1} size={42} />
+                          <div className="truncate text-[10px] font-semibold">{pet.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn-primary" type="submit" disabled={raisingBusy}>
+                        {raisingBusy ? "시작하는 중" : "이 친구로 시작"}
+                      </button>
+                      <button
+                        className="btn-ghost"
+                        type="button"
+                        onClick={() => setRaising(false)}
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
               </div>
 
               <div className="panel md:overflow-auto">
-                <div className="mb-4 flex flex-wrap gap-2">
+                {shown.active ? null : (
+                  <div className="mb-4 rounded-xl bg-[#FFF4E5] px-4 py-3 text-sm text-[#8A5A12]">
+                    돌보기를 마친 친구를 보고 있습니다. 먹이와 돌봄은 지금 키우는 친구에게만 줄 수 있습니다.
+                    <button
+                      type="button"
+                      className="mt-2 block font-semibold underline"
+                      onClick={() => setFriendId("active")}
+                    >
+                      지금 키우는 친구로 돌아가기
+                    </button>
+                  </div>
+                )}
+                <div className={`mb-4 flex flex-wrap gap-2 ${shown.active ? "" : "pointer-events-none opacity-50"}`}>
                   {SHOP_CATEGORIES.map((cat) => (
                     <button
                       key={cat}
@@ -709,7 +885,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${shown.active ? "" : "pointer-events-none opacity-50"}`}>
                   {shopItems.map((item) => {
                     const owned = user.ownedClothesIds.includes(item.id);
                     const equipped = user.equippedClothesId === item.id;
@@ -733,7 +909,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                           <button
                             type="button"
                             className="btn-primary w-full"
-                            disabled={pendingId !== null}
+                            disabled={pendingId !== null || !shown.active}
                             onClick={() => equipItem(item)}
                           >
                             {equipped ? "벗기기" : "입히기"}
@@ -742,7 +918,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                           <button
                             type="button"
                             className="btn-accent w-full"
-                            disabled={pendingId !== null}
+                            disabled={pendingId !== null || !shown.active}
                             onClick={() => buyItem(item)}
                           >
                             {pendingId === item.id
@@ -770,7 +946,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">성장 배지</h3>
               <p className="mb-6 text-sm text-[var(--ink-muted)]">
-                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다. 달리기와 진화 배지는 내가 고른 성장 친구로 나타납니다.
+                순위가 아니라 참여와 지속을 응원하는 배지입니다. 아직 받지 않은 배지는 흑백이고, 받은 배지는 색깔이 살아납니다. 달리기와 진화 배지는 내가 고른 성장 친구로 나타납니다. 바퀴, 마일리지, 먹이, 간식, 돌봄을 단계마다 모읍니다.
               </p>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
                 {badges.map((badge) => (
@@ -789,6 +965,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                       size="card"
                       animal={user.animal}
                       animalStage={badge.animalStage}
+                      motif={badge.motif}
                     />
                     <div className="mt-3 font-display text-base leading-tight md:text-xl">{badge.name}</div>
                     <div className="mt-1 text-sm text-[var(--ink-muted)]">
