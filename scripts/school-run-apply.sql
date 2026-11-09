@@ -146,7 +146,7 @@ BEGIN
     'createdAt', u->>'createdAt',
     'todayLaps', COALESCE(today_laps, 0),
     'monthLaps', COALESCE(month_laps, 0),
-    'totalLaps', COALESCE(total_laps, 0),
+    'totalLaps', GREATEST(0, COALESCE(total_laps, 0) + COALESCE((u->>'lapsAdjust')::int, 0)),
     'nextEvolutionAt', CASE WHEN stage >= 3 THEN 'null'::jsonb ELSE to_jsonb(stage * step) END
   );
   IF with_password THEN
@@ -217,6 +217,11 @@ DECLARE
   lap_rows JSONB;
   sessions_next JSONB;
   price INTEGER;
+  ever_n INTEGER;
+  friend_mileage INTEGER;
+  raw_laps INTEGER;
+  desired_laps INTEGER;
+  lap_delta INTEGER;
   grades TEXT[] := ARRAY['유치원','1학년','2학년','3학년','4학년','5학년','6학년','교직원'];
 BEGIN
   IF payload IS NULL OR jsonb_typeof(payload) <> 'object' THEN
@@ -443,7 +448,7 @@ BEGIN
       to_jsonb(
         CASE
           WHEN actor ? 'companionLaps' THEN COALESCE((actor->>'companionLaps')::int, 0)
-          ELSE COALESCE(actor_counts.total_laps, 0)
+          ELSE COALESCE(actor_counts.total_laps, 0) + COALESCE((actor->>'lapsAdjust')::int, 0)
         END + laps_n
       )
     );
@@ -600,7 +605,7 @@ BEGIN
       'caresFed', COALESCE((actor->>'caresFed')::int, 0),
       'laps', CASE
         WHEN actor ? 'companionLaps' THEN COALESCE((actor->>'companionLaps')::int, 0)
-        ELSE COALESCE(actor_counts.total_laps, 0)
+        ELSE COALESCE(actor_counts.total_laps, 0) + COALESCE((actor->>'lapsAdjust')::int, 0)
       END
     );
     updated := jsonb_set(actor, '{companions}', COALESCE(actor->'companions', '[]'::jsonb) || jsonb_build_array(record));
@@ -743,6 +748,13 @@ BEGIN
     IF available > mileage_n THEN
       RETURN school_run_err('보유 마일리지는 누적 마일리지보다 클 수 없습니다.', 400);
     END IF;
+    IF COALESCE(payload->>'totalLaps', '') !~ '^[0-9]+$' THEN
+      RETURN school_run_err('바퀴 수는 0 이상의 정수로 입력해 주세요.', 400);
+    END IF;
+    desired_laps := (payload->>'totalLaps')::int;
+    IF desired_laps > 100000 THEN
+      RETURN school_run_err('바퀴 수는 100000 이하로 입력해 주세요.', 400);
+    END IF;
     SELECT u INTO target
     FROM jsonb_array_elements(COALESCE(state->'users', '[]'::jsonb)) AS u
     WHERE u->>'id' = target_id
@@ -758,12 +770,43 @@ BEGIN
     ) THEN
       RETURN school_run_err('이미 사용 중인 아이디입니다.', 409);
     END IF;
+    ever_n := COALESCE((target->>'mileageEver')::int, 0);
+    friend_mileage := COALESCE((target->>'mileage')::int, 0);
+    IF mileage_n <> ever_n + friend_mileage THEN
+      friend_mileage := friend_mileage + (mileage_n - (ever_n + friend_mileage));
+      IF friend_mileage < 0 THEN
+        ever_n := ever_n + friend_mileage;
+        friend_mileage := 0;
+        IF ever_n < 0 THEN
+          ever_n := 0;
+        END IF;
+      END IF;
+    END IF;
+    IF available > friend_mileage AND ever_n >= available - friend_mileage THEN
+      ever_n := ever_n - (available - friend_mileage);
+      friend_mileage := available;
+    END IF;
+    IF available > friend_mileage THEN
+      RETURN school_run_err('보유 마일리지는 누적 마일리지보다 클 수 없습니다.', 400);
+    END IF;
+    SELECT * INTO target_counts FROM school_run_counts(state, target->>'id');
+    raw_laps := COALESCE(target_counts.total_laps, 0);
+    lap_delta := desired_laps - (raw_laps + COALESCE((target->>'lapsAdjust')::int, 0));
     updated := jsonb_set(target, '{username}', to_jsonb(uname));
     updated := jsonb_set(updated, '{displayName}', to_jsonb(dname));
     updated := jsonb_set(updated, '{grade}', to_jsonb(grade));
     updated := jsonb_set(updated, '{animal}', to_jsonb(animal));
-    updated := jsonb_set(updated, '{mileage}', to_jsonb(mileage_n));
-    updated := jsonb_set(updated, '{spentMileage}', to_jsonb(mileage_n - available));
+    updated := jsonb_set(updated, '{mileage}', to_jsonb(friend_mileage));
+    updated := jsonb_set(updated, '{mileageEver}', to_jsonb(ever_n));
+    updated := jsonb_set(updated, '{spentMileage}', to_jsonb(friend_mileage - available));
+    updated := jsonb_set(updated, '{lapsAdjust}', to_jsonb(desired_laps - raw_laps));
+    IF target ? 'companionLaps' THEN
+      updated := jsonb_set(
+        updated,
+        '{companionLaps}',
+        to_jsonb(GREATEST(0, COALESCE((target->>'companionLaps')::int, 0) + lap_delta))
+      );
+    END IF;
     state := school_run_put_user(state, updated);
     UPDATE school_run_state SET doc = state WHERE id = 1;
     SELECT * INTO target_counts FROM school_run_counts(state, updated->>'id');
