@@ -79,6 +79,7 @@ export function Dashboard({ user, onUserChange }: Props) {
   const [raisingBusy, setRaisingBusy] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState("0");
   const [draftMileage, setDraftMileage] = useState("0");
+  const [draftLaps, setDraftLaps] = useState("0");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [treat, setTreat] = useState<{ emoji: string; token: number } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -271,7 +272,8 @@ export function Dashboard({ user, onUserChange }: Props) {
     setDraftGrade(account.grade);
     setDraftAnimal(account.animal);
     setDraftAvailable(String(account.availableMileage));
-    setDraftMileage(String(account.mileage));
+    setDraftMileage(String(accountMileage(account)));
+    setDraftLaps(String(account.totalLaps));
     setMessage("");
   }
 
@@ -295,8 +297,13 @@ export function Dashboard({ user, onUserChange }: Props) {
     }
     const availableMileage = wholeMileage(draftAvailable);
     const mileage = wholeMileage(draftMileage);
+    const totalLaps = wholeMileage(draftLaps);
     if (availableMileage === null || mileage === null) {
       setMessage("마일리지는 0 이상의 정수로, 100000 이하로 입력해 주세요.");
+      return;
+    }
+    if (totalLaps === null) {
+      setMessage("바퀴 수는 0 이상의 정수로, 100000 이하로 입력해 주세요.");
       return;
     }
     if (availableMileage > mileage) {
@@ -313,6 +320,7 @@ export function Dashboard({ user, onUserChange }: Props) {
       animal: draftAnimal,
       mileage,
       availableMileage,
+      totalLaps,
     });
     setSavingId(null);
     if (!res.ok || !res.data.user) {
@@ -327,10 +335,12 @@ export function Dashboard({ user, onUserChange }: Props) {
     const missed = [
       res.data.user.displayName !== displayName ? "이름" : "",
       res.data.user.animal !== draftAnimal ? "동물" : "",
+      res.data.user.totalLaps !== totalLaps ? "누적 바퀴" : "",
+      accountMileage(res.data.user) !== mileage ? "누적 마일리지" : "",
     ].filter(Boolean);
     if (missed.length > 0) {
       setMessage(
-        `${missed.join("과 ")}은 아직 공유 저장소에 반영되지 않았습니다. Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요.`,
+        `${missed.join(", ")} 수정은 아직 공유 저장소에 반영되지 않았습니다. Neon SQL Editor에서 계정 수정 기능을 다시 실행해 주세요.`,
       );
       setEditingId(null);
       await loadAdmin();
@@ -344,7 +354,7 @@ export function Dashboard({ user, onUserChange }: Props) {
     }
     setMessage(`${res.data.user.displayName} 계정을 수정했습니다.`);
     setEditingId(null);
-    await loadAdmin();
+    await Promise.all([loadAdmin(), loadParticipants()]);
   }
 
   async function resetPassword(userId: string) {
@@ -532,7 +542,7 @@ export function Dashboard({ user, onUserChange }: Props) {
               {user.nextEvolutionAt
                 ? ` · 다음 진화까지 ${user.nextEvolutionAt - user.mileage} 마일리지`
                 : " · 최고 단계"}
-              {" · "}오늘 {user.todayLaps}바퀴
+              {" · "}오늘 {user.todayLaps}바퀴 · 누적 {user.totalLaps}바퀴
             </p>
           </div>
           <div className="ml-auto flex max-w-full items-center gap-3">
@@ -661,7 +671,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                 <div>
                   <h3 className="section-title">이번 달 달리기 기록</h3>
                   <p className="text-sm text-[var(--ink-muted)]">
-                    누적 {user.monthLaps}바퀴 · 사용한 마일리지 {user.spentMileage}
+                    이번 달 {user.monthLaps}바퀴 · 누적 {user.totalLaps}바퀴 · 사용한 마일리지 {user.spentMileage}
                   </p>
                 </div>
                 <MonthBars laps={lapsMonth} />
@@ -1029,6 +1039,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                   <Row label="학년/구분" value={user.grade} />
                   <Row label="키우는 동물" value={`${user.animalLabel} · ${user.stageName}`} />
                   <Row label="역할" value={user.role === "admin" ? "관리자" : "참가자"} />
+                  <Row label="누적 바퀴" value={`${user.totalLaps}`} />
                   <Row label="누적 마일리지" value={`${accountMileage(user)}`} />
                   <Row label="이 친구 마일리지" value={`${user.mileage}`} />
                   <Row label="사용 마일리지" value={`${user.spentMileage}`} />
@@ -1063,7 +1074,7 @@ export function Dashboard({ user, onUserChange }: Props) {
             <section className="panel md:h-full md:overflow-auto">
               <h3 className="section-title">참가자·계정 관리</h3>
               <p className="mb-4 text-sm text-[var(--ink-muted)]">
-                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 이름, 아이디, 학년, 동물, 보유 마일리지와 누적 마일리지를 고치고, 다른 계정을 삭제할 수 있습니다.
+                유치원, 1학년부터 6학년, 교직원 순으로 모았습니다. 누적 바퀴와 누적 마일리지를 고치면 이 화면과 그 계정의 바퀴 수, 누적 마일리지가 함께 바뀝니다.
               </p>
               <div className="max-w-full overflow-x-auto rounded-2xl border border-[var(--line)]">
                 <table className="w-full text-left text-sm">
@@ -1151,7 +1162,19 @@ export function Dashboard({ user, onUserChange }: Props) {
                             u.stageName
                           )}
                         </td>
-                        <td className="px-4 py-3">{u.totalLaps}</td>
+                        <td className="px-4 py-3">
+                          {editingId === u.id ? (
+                            <input
+                              className="field w-20 px-2 py-1.5"
+                              inputMode="numeric"
+                              value={draftLaps}
+                              aria-label={`${u.displayName} 누적 바퀴`}
+                              onChange={(event) => setDraftLaps(event.target.value)}
+                            />
+                          ) : (
+                            u.totalLaps
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {editingId === u.id ? (
                             <div className="flex flex-col gap-1.5">
@@ -1181,7 +1204,7 @@ export function Dashboard({ user, onUserChange }: Props) {
                               {u.availableMileage}
                               <span className="text-xs text-[var(--ink-muted)]">
                                 {" "}
-                                / 누적 {u.mileage}
+                                / 누적 {accountMileage(u)}
                               </span>
                             </>
                           )}
